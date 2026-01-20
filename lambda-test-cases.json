@@ -1,0 +1,292 @@
+{
+  "testCases": [
+    {
+      "name": "Root Endpoint Test",
+      "description": "Test GET / endpoint",
+      "event": {
+        "httpMethod": "GET",
+        "path": "/",
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "TestClient/1.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "GET",
+          "requestId": "test-request-1",
+          "path": "/prod/",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "cognitoIdentityPoolId": null,
+            "accountId": null,
+            "cognitoIdentityId": null,
+            "caller": null,
+            "sourceIp": "127.0.0.1",
+            "principalOrgId": null,
+            "accessKey": null,
+            "cognitoAuthenticationType": null,
+            "cognitoAuthenticationProvider": null,
+            "userArn": null,
+            "userAgent": "TestClient/1.0",
+            "user": null
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": null,
+        "isBase64Encoded": false
+      }
+    },
+    {
+      "name": "Health Check Test",
+      "description": "Test GET /health endpoint",
+      "event": {
+        "httpMethod": "GET",
+        "path": "/health",
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "HealthCheck/1.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "GET",
+          "requestId": "test-request-2",
+          "path": "/prod/health",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "sourceIp": "127.0.0.1",
+            "userAgent": "HealthCheck/1.0"
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": null,
+        "isBase64Encoded": false
+      }
+    },
+    {
+      "name": "API Health Check Test",
+      "description": "Test GET /api/health endpoint",
+      "event": {
+        "httpMethod": "GET",
+        "path": "/api/health",
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "APIHealthCheck/1.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "GET",
+          "requestId": "test-request-3",
+          "path": "/prod/api/health",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "sourceIp": "127.0.0.1",
+            "userAgent": "APIHealthCheck/1.0"
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": null,
+        "isBase64Encoded": false
+      }
+    },
+    {
+      "name": "Visitor Stats API Test",
+      "description": "Test GET /api/visitors/stats endpoint",
+      "event": {
+        "httpMethod": "GET",
+        "path": "/api/visitors/stats",
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Authorization": "Bearer test-token-123",
+          "User-Agent": "FrontendApp/1.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "GET",
+          "requestId": "test-request-4",
+          "path": "/prod/api/visitors/stats",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "sourceIp": "192.168.1.100",
+            "userAgent": "FrontendApp/1.0"
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": null,
+        "isBase64Encoded": false
+      }
+    },
+    {
+      "name": "CORS Preflight Test",
+      "description": "Test OPTIONS request for CORS preflight",
+      "event": {
+        "httpMethod": "OPTIONS",
+        "path": "/api/visitors/stats",
+        "headers": {
+          "Accept": "*/*",
+          "Origin": "http://localhost:3000",
+          "Access-Control-Request-Method": "GET",
+          "Access-Control-Request-Headers": "content-type,authorization",
+          "User-Agent": "Mozilla/5.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "OPTIONS",
+          "requestId": "test-request-5",
+          "path": "/prod/api/visitors/stats",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "sourceIp": "127.0.0.1",
+            "userAgent": "Mozilla/5.0"
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": null,
+        "isBase64Encoded": false
+      }
+    },
+    {
+      "name": "POST Request Test",
+      "description": "Test POST /api/visitors endpoint with sample data",
+      "event": {
+        "httpMethod": "POST",
+        "path": "/api/visitors",
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Authorization": "Bearer test-token-123",
+          "User-Agent": "FrontendApp/1.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "Content-Length": "156"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "POST",
+          "requestId": "test-request-6",
+          "path": "/prod/api/visitors",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "sourceIp": "192.168.1.100",
+            "userAgent": "FrontendApp/1.0"
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": "{\"name\": \"John Doe\", \"email\": \"john@example.com\", \"phone\": \"+1234567890\", \"company\": \"Test Corp\", \"purpose\": \"Meeting\"}",
+        "isBase64Encoded": false
+      }
+    },
+    {
+      "name": "Invalid Endpoint Test",
+      "description": "Test non-existent endpoint to check 404 handling",
+      "event": {
+        "httpMethod": "GET",
+        "path": "/api/nonexistent",
+        "headers": {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "TestClient/1.0",
+          "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+        },
+        "multiValueHeaders": {},
+        "queryStringParameters": null,
+        "multiValueQueryStringParameters": null,
+        "pathParameters": null,
+        "stageVariables": null,
+        "requestContext": {
+          "resourceId": "abc123",
+          "resourcePath": "/{proxy+}",
+          "httpMethod": "GET",
+          "requestId": "test-request-7",
+          "path": "/prod/api/nonexistent",
+          "accountId": "548830423226",
+          "stage": "prod",
+          "requestTimeEpoch": 1647875000000,
+          "requestTime": "14/Jan/2026:11:50:00 +0000",
+          "protocol": "HTTP/1.1",
+          "identity": {
+            "sourceIp": "127.0.0.1",
+            "userAgent": "TestClient/1.0"
+          },
+          "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+          "apiId": "w84h761xwj"
+        },
+        "body": null,
+        "isBase64Encoded": false
+      }
+    }
+  ]
+}

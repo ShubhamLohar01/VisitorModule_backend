@@ -1,0 +1,173 @@
+{
+  "test-health-endpoint": {
+    "description": "Test the health check endpoint",
+    "event": {
+      "resource": "/health",
+      "path": "/health",
+      "httpMethod": "GET",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "queryStringParameters": null,
+      "pathParameters": null,
+      "body": null,
+      "isBase64Encoded": false,
+      "requestContext": {
+        "accountId": "123456789012",
+        "apiId": "test-api",
+        "domainName": "test.execute-api.us-east-1.amazonaws.com",
+        "domainPrefix": "test",
+        "http": {
+          "method": "GET",
+          "path": "/health",
+          "protocol": "HTTP/1.1",
+          "sourceIp": "127.0.0.1",
+          "userAgent": "Custom User Agent"
+        },
+        "requestId": "test-invoke-request",
+        "routeKey": "GET /health",
+        "stage": "test",
+        "time": "15/Jan/2026:12:00:00 +0000",
+        "timeEpoch": 1736942400000
+      }
+    }
+  },
+  "test-root-endpoint": {
+    "description": "Test the root endpoint",
+    "event": {
+      "resource": "/",
+      "path": "/",
+      "httpMethod": "GET",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "queryStringParameters": null,
+      "pathParameters": null,
+      "body": null,
+      "isBase64Encoded": false,
+      "requestContext": {
+        "accountId": "123456789012",
+        "apiId": "test-api",
+        "domainName": "test.execute-api.us-east-1.amazonaws.com",
+        "domainPrefix": "test",
+        "http": {
+          "method": "GET",
+          "path": "/",
+          "protocol": "HTTP/1.1",
+          "sourceIp": "127.0.0.1",
+          "userAgent": "Custom User Agent"
+        },
+        "requestId": "test-invoke-request",
+        "routeKey": "GET /",
+        "stage": "test",
+        "time": "15/Jan/2026:12:00:00 +0000",
+        "timeEpoch": 1736942400000
+      }
+    }
+  },
+  "test-docs-endpoint": {
+    "description": "Test the API documentation endpoint",
+    "event": {
+      "resource": "/docs",
+      "path": "/docs",
+      "httpMethod": "GET",
+      "headers": {
+        "Accept": "text/html",
+        "Content-Type": "application/json"
+      },
+      "queryStringParameters": null,
+      "pathParameters": null,
+      "body": null,
+      "isBase64Encoded": false,
+      "requestContext": {
+        "accountId": "123456789012",
+        "apiId": "test-api",
+        "domainName": "test.execute-api.us-east-1.amazonaws.com",
+        "domainPrefix": "test",
+        "http": {
+          "method": "GET",
+          "path": "/docs",
+          "protocol": "HTTP/1.1",
+          "sourceIp": "127.0.0.1",
+          "userAgent": "Custom User Agent"
+        },
+        "requestId": "test-invoke-request",
+        "routeKey": "GET /docs",
+        "stage": "test",
+        "time": "15/Jan/2026:12:00:00 +0000",
+        "timeEpoch": 1736942400000
+      }
+    }
+  },
+  "test-create-appointment": {
+    "description": "Test creating an appointment",
+    "event": {
+      "resource": "/api/v1/appointments",
+      "path": "/api/v1/appointments",
+      "httpMethod": "POST",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "queryStringParameters": null,
+      "pathParameters": null,
+      "body": "{\"visitor_name\":\"John Doe\",\"visitor_email\":\"john@example.com\",\"visitor_phone\":\"+1234567890\",\"visit_date\":\"2026-01-20\",\"visit_time\":\"14:00\",\"purpose\":\"Business Meeting\",\"host_name\":\"Jane Smith\"}",
+      "isBase64Encoded": false,
+      "requestContext": {
+        "accountId": "123456789012",
+        "apiId": "test-api",
+        "domainName": "test.execute-api.us-east-1.amazonaws.com",
+        "domainPrefix": "test",
+        "http": {
+          "method": "POST",
+          "path": "/api/v1/appointments",
+          "protocol": "HTTP/1.1",
+          "sourceIp": "127.0.0.1",
+          "userAgent": "Custom User Agent"
+        },
+        "requestId": "test-invoke-request",
+        "routeKey": "POST /api/v1/appointments",
+        "stage": "test",
+        "time": "15/Jan/2026:12:00:00 +0000",
+        "timeEpoch": 1736942400000
+      }
+    }
+  },
+  "test-cors-preflight": {
+    "description": "Test CORS preflight request",
+    "event": {
+      "resource": "/api/v1/appointments",
+      "path": "/api/v1/appointments",
+      "httpMethod": "OPTIONS",
+      "headers": {
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+        "Origin": "http://localhost:3000"
+      },
+      "queryStringParameters": null,
+      "pathParameters": null,
+      "body": null,
+      "isBase64Encoded": false,
+      "requestContext": {
+        "accountId": "123456789012",
+        "apiId": "test-api",
+        "domainName": "test.execute-api.us-east-1.amazonaws.com",
+        "domainPrefix": "test",
+        "http": {
+          "method": "OPTIONS",
+          "path": "/api/v1/appointments",
+          "protocol": "HTTP/1.1",
+          "sourceIp": "127.0.0.1",
+          "userAgent": "Custom User Agent"
+        },
+        "requestId": "test-invoke-request",
+        "routeKey": "OPTIONS /api/v1/appointments",
+        "stage": "test",
+        "time": "15/Jan/2026:12:00:00 +0000",
+        "timeEpoch": 1736942400000
+      }
+    }
+  }
+}

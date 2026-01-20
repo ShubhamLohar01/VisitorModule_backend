@@ -1,0 +1,37 @@
+{
+  "httpMethod": "OPTIONS",
+  "path": "/api/visitors/stats",
+  "headers": {
+    "Accept": "*/*",
+    "Origin": "http://localhost:3000",
+    "Access-Control-Request-Method": "GET",
+    "Access-Control-Request-Headers": "content-type,authorization",
+    "User-Agent": "Mozilla/5.0",
+    "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourceId": "abc123",
+    "resourcePath": "/{proxy+}",
+    "httpMethod": "OPTIONS",
+    "requestId": "test-request-5",
+    "path": "/prod/api/visitors/stats",
+    "accountId": "548830423226",
+    "stage": "prod",
+    "requestTimeEpoch": 1647875000000,
+    "requestTime": "14/Jan/2026:11:50:00 +0000",
+    "protocol": "HTTP/1.1",
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "Mozilla/5.0"
+    },
+    "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+    "apiId": "w84h761xwj"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

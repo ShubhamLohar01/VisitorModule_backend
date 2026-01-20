@@ -1,0 +1,102 @@
+# Files and directories to exclude from ZIP deployment
+# This file is used as reference - the scripts handle exclusions
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git
+.git/
+.gitignore
+
+# Environment files (NEVER include secrets)
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log
+
+# Testing
+tests/
+test_*.py
+*_test.py
+.pytest_cache/
+.coverage
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Frontend (not needed in backend)
+frontend/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Documentation (optional - uncomment to exclude)
+# *.md
+# README.md
+
+# Development files
+*.xlsx
+*.html
+dijkstra.html
+
+# Scripts (keep only lambda_handler.py)
+*.sh
+*.bat
+generate_*.py
+reset_*.py
+insert_*.py
+create_*.py
+export_*.py
+fix_*.py
+run_*.py
+check_*.py
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Serverless
+.serverless/
+.serverless_plugins/
+
+# AWS
+.aws/
+
+# Lock files
+uv.lock
+poetry.lock
+
+# Sample files
+SAMPLE_*.txt

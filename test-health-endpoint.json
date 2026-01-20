@@ -1,0 +1,35 @@
+{
+  "httpMethod": "GET",
+  "path": "/health",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "HealthCheck/1.0",
+    "Host": "w84h761xwj.execute-api.ap-south-1.amazonaws.com"
+  },
+  "multiValueHeaders": {},
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourceId": "abc123",
+    "resourcePath": "/{proxy+}",
+    "httpMethod": "GET",
+    "requestId": "test-request-2",
+    "path": "/prod/health",
+    "accountId": "548830423226",
+    "stage": "prod",
+    "requestTimeEpoch": 1647875000000,
+    "requestTime": "14/Jan/2026:11:50:00 +0000",
+    "protocol": "HTTP/1.1",
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "HealthCheck/1.0"
+    },
+    "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+    "apiId": "w84h761xwj"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

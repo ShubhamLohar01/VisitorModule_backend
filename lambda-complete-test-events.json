@@ -1,0 +1,257 @@
+{
+  "test-root-endpoint": {
+    "description": "Test the root endpoint - should always work",
+    "resource": "/",
+    "path": "/",
+    "httpMethod": "GET",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "domainName": "w84h761xwj.execute-api.ap-south-1.amazonaws.com",
+      "domainPrefix": "w84h761xwj",
+      "http": {
+        "method": "GET",
+        "path": "/prod/",
+        "protocol": "HTTP/1.1",
+        "sourceIp": "1.2.3.4",
+        "userAgent": "Mozilla/5.0"
+      },
+      "requestId": "test-request-id",
+      "routeKey": "GET /",
+      "stage": "prod",
+      "time": "16/Jan/2026:12:00:00 +0000",
+      "timeEpoch": 1737028800000
+    }
+  },
+  
+  "test-health-endpoint": {
+    "description": "Test health check - critical for monitoring",
+    "resource": "/health",
+    "path": "/health",
+    "httpMethod": "GET",
+    "headers": {
+      "Accept": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "GET",
+        "path": "/prod/health",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-docs-endpoint": {
+    "description": "Test API documentation endpoint",
+    "resource": "/docs",
+    "path": "/docs",
+    "httpMethod": "GET",
+    "headers": {
+      "Accept": "text/html",
+      "User-Agent": "Mozilla/5.0"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "GET",
+        "path": "/prod/docs",
+        "protocol": "HTTP/1.1"                                                                   
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-visitors-list": {
+    "description": "Test getting all visitors - requires auth",
+    "resource": "/api/visitors/",
+    "path": "/api/visitors/",
+    "httpMethod": "GET",
+    "headers": {
+      "Accept": "application/json",
+      "Authorization": "Bearer YOUR_TEST_TOKEN_HERE"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "GET",
+        "path": "/prod/api/visitors/",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-create-visitor": {
+    "description": "Test creating a new visitor",
+    "resource": "/api/visitors/",
+    "path": "/api/visitors/",
+    "httpMethod": "POST",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": "{\"visitor_name\":\"John Doe\",\"visitor_phone\":\"+919876543210\",\"visitor_email\":\"john@example.com\",\"company\":\"Test Corp\",\"purpose\":\"Meeting\",\"host_name\":\"Jane Smith\",\"host_phone\":\"+919004464207\"}",
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "POST",
+        "path": "/prod/api/visitors/",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-appointments-list": {
+    "description": "Test getting all appointments",
+    "resource": "/api/v1/appointments",
+    "path": "/api/v1/appointments",
+    "httpMethod": "GET",
+    "headers": {
+      "Accept": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "GET",
+        "path": "/prod/api/v1/appointments",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-create-appointment": {
+    "description": "Test creating a new appointment",
+    "resource": "/api/v1/appointments",
+    "path": "/api/v1/appointments",
+    "httpMethod": "POST",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": "{\"visitor_name\":\"Alice Johnson\",\"visitor_email\":\"alice@example.com\",\"visitor_phone\":\"+919876543210\",\"visit_date\":\"2026-01-20\",\"visit_time\":\"14:00\",\"purpose\":\"Business Meeting\",\"host_name\":\"Bob Manager\",\"company\":\"Candor Foods\"}",
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "POST",
+        "path": "/prod/api/v1/appointments",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-approvers-list": {
+    "description": "Test getting all approvers",
+    "resource": "/api/approvers",
+    "path": "/api/approvers",
+    "httpMethod": "GET",
+    "headers": {
+      "Accept": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "GET",
+        "path": "/prod/api/approvers",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-cors-preflight": {
+    "description": "Test CORS preflight request",
+    "resource": "/api/visitors/",
+    "path": "/api/visitors/",
+    "httpMethod": "OPTIONS",
+    "headers": {
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "content-type,authorization",
+      "Origin": "http://localhost:3000"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": null,
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "OPTIONS",
+        "path": "/prod/api/visitors/",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  },
+
+  "test-google-form-submission": {
+    "description": "Test Google Form submission endpoint",
+    "resource": "/api/google-form",
+    "path": "/api/google-form",
+    "httpMethod": "POST",
+    "headers": {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "queryStringParameters": null,
+    "pathParameters": null,
+    "body": "{\"visitor_name\":\"Test Visitor\",\"visitor_phone\":\"+919876543210\",\"visitor_email\":\"test@example.com\",\"company\":\"Test Company\",\"purpose\":\"Testing\",\"host_name\":\"Test Host\",\"host_phone\":\"+919004464207\"}",
+    "isBase64Encoded": false,
+    "requestContext": {
+      "accountId": "123456789012",
+      "apiId": "w84h761xwj",
+      "http": {
+        "method": "POST",
+        "path": "/prod/api/google-form",
+        "protocol": "HTTP/1.1"
+      },
+      "stage": "prod"
+    }
+  }
+}

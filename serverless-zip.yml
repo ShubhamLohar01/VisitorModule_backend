@@ -1,0 +1,100 @@
+service: visitor-management-api
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: ap-south-1
+  stage: ${opt:stage, 'dev'}
+  timeout: 30
+  memorySize: 512
+  environment:
+    ENVIRONMENT: ${self:provider.stage}
+    DB_HOST: ${env:DB_HOST}
+    DB_PORT: ${env:DB_PORT}
+    DB_NAME: ${env:DB_NAME}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    JWT_SECRET: ${env:JWT_SECRET}
+    SMTP_USER: ${env:SMTP_USER}
+    SMTP_PASSWORD: ${env:SMTP_PASSWORD}
+    TWILIO_ACCOUNT_SID: ${env:TWILIO_ACCOUNT_SID}
+    TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN}
+    TWILIO_PHONE_NUMBER: ${env:TWILIO_PHONE_NUMBER}
+    AWS_REGION: ${self:provider.region}
+    AWS_S3_BUCKET_NAME: ${env:AWS_S3_BUCKET_NAME}
+    AWS_ACCESS_KEY_ID: ${env:AWS_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${env:AWS_SECRET_ACCESS_KEY}
+    API_CORS_ORIGINS: ${env:API_CORS_ORIGINS, '*'}
+    FRONTEND_URL: ${env:FRONTEND_URL}
+    DASHBOARD_URL: ${env:DASHBOARD_URL}
+  vpc:
+    securityGroupIds:
+      - ${env:VPC_SECURITY_GROUP_ID}
+    subnetIds:
+      - ${env:VPC_SUBNET_ID_1}
+      - ${env:VPC_SUBNET_ID_2}
+
+layers:
+  dependencies:
+    path: layer
+    name: ${self:provider.stage}-visitor-management-dependencies
+    description: Dependencies for Visitor Management API
+    compatibleRuntimes:
+      - python3.11
+    retain: false
+
+functions:
+  api:
+    handler: lambda_handler.lambda_handler
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+      - http:
+          path: /
+          method: ANY
+          cors: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    zip: true
+    slim: true
+    strip: false
+    layer: true
+    pipCmdExtraArgs:
+      - --cache-dir
+      - /tmp/.cache/pip
+    # Use layer-requirements.txt for the layer
+    fileName: layer-requirements.txt
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!__pycache__/**'
+    - '!.pytest_cache/**'
+    - '!*.pyc'
+    - '!*.pyo'
+    - '!*.pyd'
+    - '!.env'
+    - '!.git/**'
+    - '!*.md'
+    - '!*.sql'
+    - '!*.xlsx'
+    - '!test_*.py'
+    - '!*.html'
+    - '!build/**'
+    - '!layer/**'
+    - '!package/**'
+    - '!*.sh'
+    - '!Dockerfile'
+    - '!docker-compose.yml'
+    - '!.dockerignore'

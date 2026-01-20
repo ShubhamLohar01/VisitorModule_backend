@@ -1,0 +1,23 @@
+# Minimal Lambda-compatible requirements
+fastapi==0.115.0
+starlette==0.28.0
+mangum==0.17.0
+uvicorn==0.24.0
+
+# AWS
+boto3==1.35.71
+
+# Database  
+sqlalchemy==2.0.23
+
+# Auth (simpler versions)
+passlib[bcrypt]==1.7.4
+python-jose==3.3.0
+
+# Data validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Basic utilities
+python-multipart==0.0.6
+typing-extensions==4.8.0

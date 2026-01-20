@@ -1,0 +1,6 @@
+# Minimal requirements for the deployment package
+# Only include what's absolutely necessary in the main package
+# Most dependencies will be in Lambda Layers
+
+# Note: This file is minimal - most dependencies are in the layer
+# If you need to add any package-specific dependencies, add them here
