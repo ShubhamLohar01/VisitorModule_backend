@@ -27,6 +27,8 @@ class Visitor(Base):
     reason_to_visit = Column(String(500), nullable=False)
     warehouse = Column(String(255), nullable=True)
     health_declaration = Column(String, nullable=True)  # JSON string containing health & safety declaration
+    carrying_electronics = Column(String(10), nullable=True, default='false')  # Boolean flag as string
+    electronics_items = Column(String, nullable=True)  # JSON string containing electronics items details
     status = Column(SQLEnum(VisitorStatus), default=VisitorStatus.WAITING, nullable=False)
     img_url = Column(String(500), nullable=True)
     rejection_reason = Column(String(500), nullable=True)  # Reason for rejection (if rejected)

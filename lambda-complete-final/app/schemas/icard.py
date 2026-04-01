@@ -5,7 +5,8 @@ from datetime import datetime
 
 class ICardBase(BaseModel):
     """Base schema for ICard with common fields"""
-    card_name: str = Field(..., min_length=1, max_length=255, description="Unique card name/identifier")
+    card_name: str = Field(..., min_length=1, max_length=255, description="QR reference ID (CU001, VE005, VI012)")
+    icard_name: Optional[str] = Field(None, max_length=255, description="Display name (e.g. visitor-card-01)")
     occ_status: bool = Field(default=False, description="Card occupation status (True if occupied)")
     occ_to: Optional[int] = Field(None, description="Visitor ID the card is assigned to")
 
@@ -18,6 +19,7 @@ class ICardCreate(ICardBase):
 class ICardUpdate(BaseModel):
     """Schema for updating ICard information"""
     card_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    icard_name: Optional[str] = Field(None, max_length=255)
     occ_status: Optional[bool] = None
     occ_to: Optional[int] = None
 
@@ -59,5 +61,6 @@ class ICardStatsResponse(BaseModel):
 class VisitorCardResponse(BaseModel):
     """Schema for visitor's assigned card"""
     visitor_id: int = Field(..., description="Visitor ID (YYYYMMDDHHMMSS format)")
-    card_name: Optional[str] = Field(None, description="Name of the assigned card, null if no card assigned")
+    card_name: Optional[str] = Field(None, description="QR reference ID of the assigned card")
+    icard_name: Optional[str] = Field(None, description="Display name of the assigned card")
     card_id: Optional[int] = Field(None, description="ID of the assigned card, null if no card assigned")

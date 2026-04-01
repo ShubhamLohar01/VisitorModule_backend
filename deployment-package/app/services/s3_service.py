@@ -98,6 +98,130 @@ class S3Service:
             logger.error(f"Unexpected error during S3 upload: {str(e)}")
             raise Exception(f"Failed to upload image: {str(e)}")
 
+    def upload_electronics_photo(
+        self,
+        file_content: bytes,
+        visitor_number: str,
+        item_index: int,
+        content_type: str = "image/jpeg"
+    ) -> Optional[str]:
+        """
+        Upload electronics item photo to S3 bucket.
+
+        Args:
+            file_content: Binary content of the image file
+            visitor_number: Visitor number in YYYYMMDDHHMMSS format
+            item_index: Index of the electronics item (0-based)
+            content_type: MIME type of the image (default: image/jpeg)
+
+        Returns:
+            URL of the uploaded image if successful, None otherwise
+
+        Raises:
+            Exception: If upload fails
+        """
+        try:
+            # Determine file extension from content type
+            extension_map = {
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/png": ".png",
+                "image/gif": ".gif",
+                "image/webp": ".webp"
+            }
+            extension = extension_map.get(content_type.lower(), ".jpg")
+
+            # Create S3 object key using visitor number and item index
+            object_key = f"visitors/{visitor_number}/electronics/item_{item_index}{extension}"
+
+            # Upload to S3
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=file_content,
+                ContentType=content_type
+            )
+
+            # Generate pre-signed URL (valid for 7 days)
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': object_key
+                },
+                ExpiresIn=604800  # 7 days in seconds
+            )
+
+            logger.info(f"Successfully uploaded electronics photo: {object_key}")
+            return url
+
+        except ClientError as e:
+            logger.error(f"Failed to upload electronics photo to S3: {str(e)}")
+            raise Exception(f"Failed to upload electronics photo: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error during electronics photo S3 upload: {str(e)}")
+            raise Exception(f"Failed to upload electronics photo: {str(e)}")
+
+    def upload_base64_image(
+        self,
+        base64_data: str,
+        visitor_number: str,
+        item_index: int,
+        folder: str = "electronics"
+    ) -> Optional[str]:
+        """
+        Upload base64 encoded image to S3 bucket.
+
+        Args:
+            base64_data: Base64 encoded image data (with or without data:image prefix)
+            visitor_number: Visitor number in YYYYMMDDHHMMSS format
+            item_index: Index of the item
+            folder: Folder name (default: electronics)
+
+        Returns:
+            URL of the uploaded image if successful, None otherwise
+
+        Raises:
+            Exception: If upload fails
+        """
+        try:
+            import base64
+            
+            # Remove data:image prefix if present
+            if base64_data.startswith('data:image'):
+                base64_data = base64_data.split(',')[1]
+            
+            # Decode base64 to bytes
+            file_content = base64.b64decode(base64_data)
+            
+            # Create S3 object key
+            object_key = f"visitors/{visitor_number}/{folder}/item_{item_index}.jpg"
+
+            # Upload to S3
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=file_content,
+                ContentType="image/jpeg"
+            )
+
+            # Generate pre-signed URL (valid for 7 days)
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': object_key
+                },
+                ExpiresIn=604800  # 7 days in seconds
+            )
+
+            logger.info(f"Successfully uploaded base64 image: {object_key}")
+            return url
+
+        except Exception as e:
+            logger.error(f"Failed to upload base64 image to S3: {str(e)}")
+            raise Exception(f"Failed to upload base64 image: {str(e)}")
+
     def delete_visitor_image(self, img_url: str) -> bool:
         """
         Delete visitor image from S3 bucket.

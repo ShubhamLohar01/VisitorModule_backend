@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.auth import get_current_approver
 from app.models.approver import Approver
 from app.models.icard import ICard
-from app.models.visitor import Visitor
+from app.models.visitor import Visitor, VisitorStatus
 from app.schemas.icard import (
     ICardCreate,
     ICardUpdate,
@@ -159,6 +159,34 @@ def get_available_icards(
     return [ICardResponse.model_validate(card) for card in cards]
 
 
+@router.post("/release-all", response_model=ICardListResponse, status_code=status.HTTP_200_OK)
+def release_all_icards(
+    db: Session = Depends(get_db),
+    current_user: Approver = Depends(get_current_approver)
+):
+    """
+    Release all ICards (set all to available). Use when cards show as occupied
+    but no assignments were made. Requires authentication.
+    """
+    occupied = db.query(ICard).filter(ICard.occ_status == True).all()
+    for card in occupied:
+        if card.occ_to:
+            visitor = db.query(Visitor).filter(Visitor.id == card.occ_to).first()
+            if visitor:
+                visitor.check_out_time = datetime.now(timezone.utc)
+        card.occ_status = False
+        card.occ_to = None
+    db.commit()
+    # Return full list so client can refresh
+    cards = db.query(ICard).order_by(ICard.card_name).all()
+    return ICardListResponse(
+        total=len(cards),
+        cards=[ICardResponse.model_validate(c) for c in cards],
+        page=1,
+        page_size=len(cards),
+    )
+
+
 @router.get("/visitor/{visitor_id}/card", response_model=VisitorCardResponse, status_code=status.HTTP_200_OK)
 def get_visitor_card(
     visitor_id: str,
@@ -193,6 +221,7 @@ def get_visitor_card(
         return VisitorCardResponse(
             visitor_id=visitor_id_int,
             card_name=card.card_name,
+            icard_name=card.icard_name,
             card_id=card.id
         )
     else:
@@ -200,6 +229,7 @@ def get_visitor_card(
         return VisitorCardResponse(
             visitor_id=visitor_id_int,
             card_name=None,
+            icard_name=None,
             card_id=None
         )
 
@@ -425,3 +455,69 @@ def delete_icard(
     db.commit()
 
     return None
+
+
+@router.post("/scan-release", status_code=status.HTTP_200_OK)
+def scan_release_icard(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: Approver = Depends(get_current_approver)
+):
+    """
+    Release an ICard by scanning its QR code (card_name).
+    Releases the card, sets visitor checkout time, and marks visitor as COMPLETED.
+
+    Args:
+        data: Dict with "card_name" (e.g. "CU001", "VE005", "VI012")
+        db: Database session
+        current_user: Current authenticated approver
+
+    Returns:
+        Release result with visitor and card info
+    """
+    card_name = data.get("card_name", "").strip().upper()
+
+    if not card_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="card_name is required"
+        )
+
+    # Find card by name
+    card = db.query(ICard).filter(ICard.card_name == card_name).first()
+
+    if not card:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Card '{card_name}' not found"
+        )
+
+    if not card.occ_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Card '{card_name}' is not assigned to anyone"
+        )
+
+    # Get the assigned visitor
+    visitor_name = None
+    visitor_id = card.occ_to
+    if visitor_id:
+        visitor = db.query(Visitor).filter(Visitor.id == visitor_id).first()
+        if visitor:
+            visitor_name = visitor.visitor_name
+            visitor.check_out_time = datetime.now(timezone.utc)
+            visitor.status = VisitorStatus.COMPLETED
+
+    # Release the card
+    card.occ_status = False
+    card.occ_to = None
+
+    db.commit()
+
+    return {
+        "message": f"Card '{card_name}' released successfully",
+        "card_name": card_name,
+        "card_id": card.id,
+        "visitor_id": visitor_id,
+        "visitor_name": visitor_name,
+    }

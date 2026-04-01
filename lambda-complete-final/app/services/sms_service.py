@@ -20,14 +20,13 @@ class SMSService:
         """Initialize Twilio client with credentials from settings."""
         self.enabled = settings.twilio_enabled and settings.twilio_sms_enabled
         self.client = None
-        
+
         if self.enabled and settings.twilio_account_sid and settings.twilio_auth_token:
             try:
-                # Initialize with timeout to prevent hanging requests
+                # Initialize Twilio client
                 self.client = Client(
                     settings.twilio_account_sid,
-                    settings.twilio_auth_token,
-                    timeout=10  # 10 second timeout for Twilio API calls
+                    settings.twilio_auth_token
                 )
                 logger.info("Twilio SMS client initialized successfully")
             except Exception as e:
@@ -40,23 +39,23 @@ class SMSService:
     def format_phone_number(self, phone_number: str) -> str:
         """
         Format phone number to E.164 format for Twilio.
-        
+
         Args:
             phone_number: Phone number in any format
-            
+
         Returns:
             Formatted phone number in E.164 format (e.g., +1234567890)
         """
         if not phone_number:
             return ""
-        
+
         # Remove all non-digit characters (including spaces)
         digits = ''.join(filter(str.isdigit, phone_number))
-        
+
         # If it starts with 0, remove it (common in Indian numbers)
         if digits.startswith('0'):
             digits = digits[1:]
-        
+
         # If it doesn't start with country code, assume it's Indian (+91)
         if len(digits) == 10:
             formatted = f"+91{digits}"
@@ -67,7 +66,7 @@ class SMSService:
             formatted = f"+{digits}" if not digits.startswith('+') else digits
         else:
             formatted = f"+{digits}"
-        
+
         logger.info(f"Phone number formatting: '{phone_number}' -> '{formatted}' (digits: {digits}, length: {len(digits)})")
         return formatted
 
@@ -87,7 +86,7 @@ class SMSService:
     ) -> bool:
         """
         Send SMS notification to approver about new visitor check-in.
-        
+
         Args:
             to_phone: Phone number of the person to notify (from vis_approvers.ph_no)
             visitor_name: Name of the visitor
@@ -97,7 +96,7 @@ class SMSService:
             reason_for_visit: Reason for the visit
             visitor_id: Visitor ID (YYYYMMDDHHMMSS format)
             warehouse: Warehouse location (optional)
-            
+
         Returns:
             True if SMS was sent successfully, False otherwise
         """
@@ -116,7 +115,7 @@ class SMSService:
         try:
             # Format phone number
             formatted_to = self.format_phone_number(to_phone)
-            
+
             # Determine sender ID/number (priority: custom sender ID > custom phone > Twilio number)
             from_number = None
             if settings.twilio_custom_sender_id:
@@ -138,23 +137,23 @@ class SMSService:
             # Build SMS message
             is_appointment = reason_for_visit.startswith("[APPOINTMENT]")
             message_header = "🔔 New Appointment Request" if is_appointment else "🔔 New Visitor Check-In"
-            
+
             message_parts = [
                 message_header,
                 "",
                 f"Visitor Name: {visitor_name}",
                 f"Mobile: {visitor_mobile}",
             ]
-            
+
             if visitor_email:
                 message_parts.append(f"Email: {visitor_email}")
-            
+
             if visitor_company:
                 message_parts.append(f"Company: {visitor_company}")
-            
+
             if person_to_meet_name:
                 message_parts.append(f"Coming to Meet: {person_to_meet_name}")
-            
+
             # Add appointment details
             if is_appointment:
                 message_parts.append("")
@@ -169,19 +168,19 @@ class SMSService:
             else:
                 # For regular check-ins, show reason
                 message_parts.append(f"Reason: {reason_for_visit}")
-            
+
             message_parts.append(f"Visitor ID: {visitor_id}")
-            
+
             if warehouse:
                 message_parts.append(f"Warehouse: {warehouse}")
-            
+
             # Get dashboard URL for SMS link
             # Use dashboard_url if available, otherwise append /dashboard to frontend_url
             if hasattr(settings, 'dashboard_url') and settings.dashboard_url:
                 dashboard_url = settings.dashboard_url.rstrip('/')
             else:
                 dashboard_url = f"{settings.frontend_url.rstrip('/')}/dashboard"
-            
+
             message_parts.extend([
                 "",
                 "Please review and approve/reject the visitor request.",
@@ -191,12 +190,12 @@ class SMSService:
                 "",
                 "Login with your credentials if not already logged in.",
             ])
-            
+
             message_body = "\n".join(message_parts)
 
             # Send SMS
             logger.info(f"Sending SMS from {from_number} to {formatted_to} about visitor {visitor_id}")
-            
+
             # Use Messaging Service if configured (allows verified numbers to work)
             if settings.twilio_messaging_service_sid:
                 message = self.client.messages.create(
@@ -211,10 +210,10 @@ class SMSService:
                     from_=from_number,
                     to=formatted_to
                 )
-            
+
             logger.info(f"SMS sent successfully. SID: {message.sid}")
             logger.info(f"SMS Status: {message.status}, Error Code: {message.error_code}, Error Message: {message.error_message}")
-            
+
             # Check for delivery issues
             if message.status == 'failed' or message.error_code:
                 logger.error(f"SMS delivery failed! Status: {message.status}, Error Code: {message.error_code}, Error Message: {message.error_message}")
@@ -224,10 +223,10 @@ class SMSService:
                 logger.error(f"  - Carrier blocking")
                 logger.error(f"  - Insufficient Twilio balance")
                 return False
-            
+
             # Log message details for debugging
             logger.info(f"Message Details - To: {formatted_to}, From: {from_number}, Status: {message.status}, Price: {message.price}, Price Unit: {message.price_unit}")
-            
+
             return True
 
         except TwilioException as e:
@@ -249,7 +248,7 @@ class SMSService:
     ) -> bool:
         """
         Send SMS notification to visitor when their request is approved.
-        
+
         Args:
             to_phone: Phone number of the visitor
             visitor_name: Name of the visitor
@@ -258,7 +257,7 @@ class SMSService:
             is_appointment: Whether this is an appointment (optional)
             appointment_date: Appointment date (optional)
             appointment_time: Appointment time (optional)
-            
+
         Returns:
             True if SMS was sent successfully, False otherwise
         """
@@ -277,7 +276,7 @@ class SMSService:
         try:
             # Format phone number
             formatted_to = self.format_phone_number(to_phone)
-            
+
             # Determine sender ID/number
             from_number = None
             if settings.twilio_custom_sender_id:
@@ -300,7 +299,7 @@ class SMSService:
                 f"Dear {visitor_name},",
                 "",
             ]
-            
+
             if is_appointment:
                 message_parts.append("Your appointment request has been approved. Please come and visit us.")
                 if appointment_date:
@@ -309,13 +308,13 @@ class SMSService:
                     message_parts.append(f"🕐 Time: {appointment_time}")
             else:
                 message_parts.append("Your visit request has been approved. Please come and visit us at your convenience.")
-            
+
             if person_to_meet_name:
                 message_parts.append(f"👤 Meeting with: {person_to_meet_name}")
-            
+
             if visitor_id:
                 message_parts.append(f"🆔 Visitor ID: {visitor_id}")
-            
+
             message_parts.extend([
                 "",
                 "We look forward to seeing you!",
@@ -323,12 +322,12 @@ class SMSService:
                 "Thank you,",
                 "Candor Foods"
             ])
-            
+
             message_body = "\n".join(message_parts)
 
             # Send SMS
             logger.info(f"Sending approval SMS from {from_number} to {formatted_to} for visitor {visitor_name}")
-            
+
             # Use Messaging Service if configured
             if settings.twilio_messaging_service_sid:
                 message = self.client.messages.create(
@@ -343,15 +342,15 @@ class SMSService:
                     from_=from_number,
                     to=formatted_to
                 )
-            
+
             logger.info(f"Approval SMS sent successfully. SID: {message.sid}")
             logger.info(f"SMS Status: {message.status}, Error Code: {message.error_code}, Error Message: {message.error_message}")
-            
+
             # Check for delivery issues
             if message.status == 'failed' or message.error_code:
                 logger.error(f"Approval SMS delivery failed! Status: {message.status}, Error Code: {message.error_code}, Error Message: {message.error_message}")
                 return False
-            
+
             return True
 
         except TwilioException as e:
@@ -364,4 +363,3 @@ class SMSService:
 
 # Create a singleton instance
 sms_service = SMSService()
-

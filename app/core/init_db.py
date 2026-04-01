@@ -8,6 +8,7 @@ from app.core.database import engine, Base, SessionLocal
 from app.core.auth import AuthUtils
 from app.models.approver import Approver
 from app.models.visitor import Visitor
+from app.models.icard import ICard
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +65,69 @@ def seed_initial_data():
         db.close()
 
 
+def seed_icards():
+    """
+    Seed the database with initial ICards if they don't exist.
+    """
+    db = SessionLocal()
+
+    try:
+        # Check if any ICards exist
+        existing_icards = db.query(ICard).count()
+
+        if existing_icards == 0:
+            logger.info("No ICards found. Creating default ICards...")
+
+            # Define the ICards to create
+            icards_to_create = []
+
+            # Customer Cards (CU001-CU005)
+            for i in range(1, 6):
+                icards_to_create.append(ICard(
+                    card_name=f"CU{i:03d}",
+                    icard_name=f"customer_{i}_card",
+                    occ_status=False,
+                    occ_to=None
+                ))
+
+            # Vendor Cards (VE001-VE005)
+            for i in range(1, 6):
+                icards_to_create.append(ICard(
+                    card_name=f"VE{i:03d}",
+                    icard_name=f"vendor_{i}_card",
+                    occ_status=False,
+                    occ_to=None
+                ))
+
+            # Visitor Cards (VI001-VI005)
+            for i in range(1, 6):
+                icards_to_create.append(ICard(
+                    card_name=f"VI{i:03d}",
+                    icard_name=f"visitor_{i}_card",
+                    occ_status=False,
+                    occ_to=None
+                ))
+
+            # Add all ICards to the database
+            db.add_all(icards_to_create)
+            db.commit()
+
+            logger.info(f"Successfully created {len(icards_to_create)} ICards!")
+            logger.info("ICard types created:")
+            logger.info("  - Customer Cards: CU001-CU005")
+            logger.info("  - Vendor Cards: VE001-VE005")
+            logger.info("  - Visitor Cards: VI001-VI005")
+        else:
+            logger.info(f"Database already has {existing_icards} ICard(s). Skipping ICard seed data.")
+
+    except Exception as e:
+        logger.error(f"Error seeding ICards: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def check_tables():
     """
     Check which tables exist in the database.
@@ -91,6 +155,9 @@ if __name__ == "__main__":
 
     # Seed initial data
     seed_initial_data()
+
+    # Seed ICards
+    seed_icards()
 
     # Check tables again
     check_tables()

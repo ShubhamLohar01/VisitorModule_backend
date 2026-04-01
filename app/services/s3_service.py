@@ -18,25 +18,33 @@ class S3Service:
 
     def __init__(self):
         """Initialize S3 client with AWS credentials from settings."""
-        # Use regional endpoint to ensure signature matches the URL host
-        regional_endpoint = f"https://s3.{settings.aws_region}.amazonaws.com"
-        
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key,
-            region_name=settings.aws_region,
-            endpoint_url=regional_endpoint,
-            config=BotoConfig(
+        # Build client kwargs – always pass credentials from settings explicitly
+        # so it works on Render, Lambda, and local dev regardless of whether
+        # the .env values are also present as real OS environment variables.
+        client_kwargs = {
+            'region_name': settings.aws_region,
+            'config': BotoConfig(
                 signature_version='s3v4',
                 s3={'addressing_style': 'virtual'},
-                connect_timeout=10,  # Increased from 5 to 10 seconds
-                read_timeout=60,     # Increased from 10 to 60 seconds
-                retries={'max_attempts': 3}  # Increased retries from 2 to 3
-            )
-        )
+                connect_timeout=5,
+                read_timeout=15,
+                retries={'max_attempts': 1}
+            ),
+        }
+
+        # Pass explicit credentials if available in settings
+        if settings.aws_access_key_id and settings.aws_secret_access_key:
+            client_kwargs['aws_access_key_id'] = settings.aws_access_key_id
+            client_kwargs['aws_secret_access_key'] = settings.aws_secret_access_key
+            # If running on Lambda, AWS_SESSION_TOKEN is needed for IAM role creds
+            session_token = os.environ.get('AWS_SESSION_TOKEN')
+            if session_token:
+                client_kwargs['aws_session_token'] = session_token
+
+        self.s3_client = boto3.client('s3', **client_kwargs)
         self.bucket_name = settings.aws_s3_bucket_name
         self.region = settings.aws_region
+        logger.info(f"S3 service initialized: bucket={self.bucket_name}, region={self.region}")
 
     def upload_visitor_image(
         self,
@@ -84,11 +92,8 @@ class S3Service:
             # Generate pre-signed URL (valid for 7 days)
             url = self.s3_client.generate_presigned_url(
                 'get_object',
-                Params={
-                    'Bucket': self.bucket_name,
-                    'Key': object_key
-                },
-                ExpiresIn=604800  # 7 days in seconds
+                Params={'Bucket': self.bucket_name, 'Key': object_key},
+                ExpiresIn=604800
             )
 
             logger.info(f"Successfully uploaded visitor image: {object_key}")
@@ -100,6 +105,124 @@ class S3Service:
         except Exception as e:
             logger.error(f"Unexpected error during S3 upload: {str(e)}")
             raise Exception(f"Failed to upload image: {str(e)}")
+
+    def upload_electronics_photo(
+        self,
+        file_content: bytes,
+        visitor_number: str,
+        item_index: int,
+        content_type: str = "image/jpeg"
+    ) -> Optional[str]:
+        """
+        Upload electronics item photo to S3 bucket.
+
+        Args:
+            file_content: Binary content of the image file
+            visitor_number: Visitor number in YYYYMMDDHHMMSS format
+            item_index: Index of the electronics item (0-based)
+            content_type: MIME type of the image (default: image/jpeg)
+
+        Returns:
+            URL of the uploaded image if successful, None otherwise
+
+        Raises:
+            Exception: If upload fails
+        """
+        try:
+            # Determine file extension from content type
+            extension_map = {
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/png": ".png",
+                "image/gif": ".gif",
+                "image/webp": ".webp"
+            }
+            extension = extension_map.get(content_type.lower(), ".jpg")
+
+            # Create S3 object key using visitor number and item index
+            object_key = f"visitors/{visitor_number}/electronics/item_{item_index}{extension}"
+
+            # Upload to S3
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=file_content,
+                ContentType=content_type
+            )
+
+            # Generate pre-signed URL (valid for 7 days)
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket_name, 'Key': object_key},
+                ExpiresIn=604800
+            )
+
+            logger.info(f"Successfully uploaded electronics photo: {object_key}")
+            return url
+
+        except ClientError as e:
+            logger.error(f"Failed to upload electronics photo to S3: {str(e)}")
+            raise Exception(f"Failed to upload electronics photo: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error during electronics photo S3 upload: {str(e)}")
+            raise Exception(f"Failed to upload electronics photo: {str(e)}")
+
+    def upload_base64_image(
+        self,
+        base64_data: str,
+        visitor_number: str,
+        item_index: int,
+        folder: str = "electronics"
+    ) -> Optional[str]:
+        """
+        Upload base64 encoded image to S3 bucket.
+
+        Args:
+            base64_data: Base64 encoded image data (with or without data:image prefix)
+            visitor_number: Visitor number in YYYYMMDDHHMMSS format
+            item_index: Index of the item
+            folder: Folder name (default: electronics)
+
+        Returns:
+            URL of the uploaded image if successful, None otherwise
+
+        Raises:
+            Exception: If upload fails
+        """
+        try:
+            import base64
+            
+            # Remove data:image prefix if present
+            if base64_data.startswith('data:image'):
+                base64_data = base64_data.split(',')[1]
+            
+            # Decode base64 to bytes
+            file_content = base64.b64decode(base64_data)
+            
+            # Create S3 object key
+            object_key = f"visitors/{visitor_number}/{folder}/item_{item_index}.jpg"
+
+            # Upload to S3
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=object_key,
+                Body=file_content,
+                ContentType="image/jpeg"
+            )
+
+            # Generate pre-signed URL (valid for 7 days)
+            url = self.s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket_name, 'Key': object_key},
+                ExpiresIn=604800
+            )
+
+            logger.info(f"Successfully uploaded base64 image: {object_key}")
+            return url
+
+        except Exception as e:
+            logger.error(f"Failed to upload base64 image to S3: {str(e)}")
+            raise Exception(f"Failed to upload base64 image: {str(e)}")
 
     def delete_visitor_image(self, img_url: str) -> bool:
         """

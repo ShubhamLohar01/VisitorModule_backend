@@ -23,11 +23,10 @@ class SMSService:
         
         if self.enabled and settings.twilio_account_sid and settings.twilio_auth_token:
             try:
-                # Initialize with timeout to prevent hanging requests
+                # Initialize Twilio client
                 self.client = Client(
                     settings.twilio_account_sid,
-                    settings.twilio_auth_token,
-                    timeout=10  # 10 second timeout for Twilio API calls
+                    settings.twilio_auth_token
                 )
                 logger.info("Twilio SMS client initialized successfully")
             except Exception as e:
@@ -135,63 +134,44 @@ class SMSService:
                 logger.error("No sender number/ID configured. Set TWILIO_CUSTOM_SENDER_ID, TWILIO_CUSTOM_PHONE_NUMBER, or TWILIO_PHONE_NUMBER")
                 return False
 
-            # Build SMS message
+            # Build SMS message (shortened to reduce costs)
             is_appointment = reason_for_visit.startswith("[APPOINTMENT]")
-            message_header = "🔔 New Appointment Request" if is_appointment else "🔔 New Visitor Check-In"
-            
-            message_parts = [
-                message_header,
-                "",
-                f"Visitor Name: {visitor_name}",
-                f"Mobile: {visitor_mobile}",
-            ]
-            
-            if visitor_email:
-                message_parts.append(f"Email: {visitor_email}")
-            
-            if visitor_company:
-                message_parts.append(f"Company: {visitor_company}")
-            
-            if person_to_meet_name:
-                message_parts.append(f"Coming to Meet: {person_to_meet_name}")
-            
-            # Add appointment details
-            if is_appointment:
-                message_parts.append("")
-                message_parts.append("📅 Appointment Details:")
-                if date_of_visit:
-                    message_parts.append(f"Date: {date_of_visit}")
-                if time_slot:
-                    message_parts.append(f"Time: {time_slot}")
-                # Extract purpose from reason (remove [APPOINTMENT] prefix)
-                purpose = reason_for_visit.replace("[APPOINTMENT] ", "").strip()
-                message_parts.append(f"Purpose: {purpose}")
-            else:
-                # For regular check-ins, show reason
-                message_parts.append(f"Reason: {reason_for_visit}")
-            
-            message_parts.append(f"Visitor ID: {visitor_id}")
-            
-            if warehouse:
-                message_parts.append(f"Warehouse: {warehouse}")
-            
-            # Get dashboard URL for SMS link
-            # Use dashboard_url if available, otherwise append /dashboard to frontend_url
+
+            # Get dashboard URL
             if hasattr(settings, 'dashboard_url') and settings.dashboard_url:
                 dashboard_url = settings.dashboard_url.rstrip('/')
             else:
                 dashboard_url = f"{settings.frontend_url.rstrip('/')}/dashboard"
-            
-            message_parts.extend([
-                "",
-                "Please review and approve/reject the visitor request.",
-                "",
-                f"Click here to view dashboard:",
-                f"{dashboard_url}",
-                "",
-                "Login with your credentials if not already logged in.",
-            ])
-            
+
+            message_parts = []
+
+            if is_appointment:
+                # Extract purpose from reason (remove [APPOINTMENT] prefix)
+                purpose = reason_for_visit.replace("[APPOINTMENT] ", "").strip()
+                message_parts.append("New Appointment")
+                message_parts.append(f"Name: {visitor_name}")
+                if visitor_company:
+                    message_parts.append(f"Company: {visitor_company}")
+                if date_of_visit:
+                    message_parts.append(f"Date: {date_of_visit}")
+                if time_slot:
+                    message_parts.append(f"Time: {time_slot}")
+                message_parts.append(f"Purpose: {purpose}")
+                if person_to_meet_name:
+                    message_parts.append(f"To meet: {person_to_meet_name}")
+            else:
+                # For regular check-ins
+                message_parts.append("New Visitor")
+                message_parts.append(f"Name: {visitor_name}")
+                message_parts.append(f"Mobile: {visitor_mobile}")
+                if visitor_company:
+                    message_parts.append(f"Company: {visitor_company}")
+                message_parts.append(f"Reason: {reason_for_visit}")
+                if person_to_meet_name:
+                    message_parts.append(f"To meet: {person_to_meet_name}")
+
+            message_parts.append(f"View: {dashboard_url}")
+
             message_body = "\n".join(message_parts)
 
             # Send SMS
@@ -293,38 +273,18 @@ class SMSService:
                 logger.error("No sender number/ID configured. Set TWILIO_CUSTOM_SENDER_ID, TWILIO_CUSTOM_PHONE_NUMBER, or TWILIO_PHONE_NUMBER")
                 return False
 
-            # Build SMS message
-            message_parts = [
-                "✅ Your visit request has been approved!",
-                "",
-                f"Dear {visitor_name},",
-                "",
-            ]
-            
+            # Build compact SMS message (GSM-7, 1 segment = 160 chars max)
             if is_appointment:
-                message_parts.append("Your appointment request has been approved. Please come and visit us.")
-                if appointment_date:
-                    message_parts.append(f"📅 Date: {appointment_date}")
-                if appointment_time:
-                    message_parts.append(f"🕐 Time: {appointment_time}")
+                msg = f"{visitor_name}, appointment approved."
             else:
-                message_parts.append("Your visit request has been approved. Please come and visit us at your convenience.")
-            
+                msg = f"{visitor_name}, visit approved."
+
             if person_to_meet_name:
-                message_parts.append(f"👤 Meeting with: {person_to_meet_name}")
-            
-            if visitor_id:
-                message_parts.append(f"🆔 Visitor ID: {visitor_id}")
-            
-            message_parts.extend([
-                "",
-                "We look forward to seeing you!",
-                "",
-                "Thank you,",
-                "Candor Foods"
-            ])
-            
-            message_body = "\n".join(message_parts)
+                msg += f" Host: {person_to_meet_name}."
+
+            msg += " Welcome to Candor Foods!"
+
+            message_body = msg
 
             # Send SMS
             logger.info(f"Sending approval SMS from {from_number} to {formatted_to} for visitor {visitor_name}")
@@ -359,6 +319,141 @@ class SMSService:
             return False
         except Exception as e:
             logger.error(f"Unexpected error sending approval SMS: {e}")
+            return False
+
+    def send_otp(self, to_phone: str, otp_code: str) -> bool:
+        """Send OTP code via SMS for revisit verification."""
+        if not self.enabled:
+            logger.warning("SMS service is disabled, cannot send OTP")
+            return False
+
+        if not self.client:
+            logger.warning("Twilio client not initialized")
+            return False
+
+        if not to_phone:
+            logger.warning("No phone number provided for OTP")
+            return False
+
+        try:
+            formatted_to = self.format_phone_number(to_phone)
+
+            from_number = None
+            if settings.twilio_custom_sender_id:
+                from_number = settings.twilio_custom_sender_id
+            elif settings.twilio_custom_phone_number:
+                from_number = self.format_phone_number(settings.twilio_custom_phone_number)
+            elif settings.twilio_phone_number:
+                from_number = settings.twilio_phone_number
+            else:
+                logger.error("No sender number/ID configured for OTP SMS")
+                return False
+
+            message_body = f"Candor Foods: Your OTP for revisit check-in is {otp_code}. Valid for 5 minutes."
+
+            logger.info(f"Sending OTP SMS from {from_number} to {formatted_to}")
+
+            if settings.twilio_messaging_service_sid:
+                message = self.client.messages.create(
+                    body=message_body,
+                    messaging_service_sid=settings.twilio_messaging_service_sid,
+                    to=formatted_to
+                )
+            else:
+                message = self.client.messages.create(
+                    body=message_body,
+                    from_=from_number,
+                    to=formatted_to
+                )
+
+            logger.info(f"OTP SMS sent successfully. SID: {message.sid}")
+
+            if message.status == 'failed' or message.error_code:
+                logger.error(f"OTP SMS delivery failed: {message.error_code}")
+                return False
+
+            return True
+
+        except TwilioException as e:
+            logger.error(f"Twilio error sending OTP: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error sending OTP: {e}")
+            return False
+
+    def send_revisit_notification(
+        self,
+        to_phone: str,
+        visitor_name: str,
+        visitor_mobile: str,
+        visitor_company: Optional[str],
+        reason_for_visit: str,
+        person_to_meet_name: Optional[str] = None,
+    ) -> bool:
+        """Send compact revisit notification SMS to approver (1-2 segments)."""
+        if not self.enabled or not self.client or not to_phone:
+            logger.warning("SMS service disabled or no phone provided for revisit notification")
+            return False
+
+        try:
+            formatted_to = self.format_phone_number(to_phone)
+
+            from_number = None
+            if settings.twilio_custom_sender_id:
+                from_number = settings.twilio_custom_sender_id
+            elif settings.twilio_custom_phone_number:
+                from_number = self.format_phone_number(settings.twilio_custom_phone_number)
+            elif settings.twilio_phone_number:
+                from_number = settings.twilio_phone_number
+            else:
+                logger.error("No sender number/ID configured for revisit SMS")
+                return False
+
+            # Compact GSM-7 message (no emojis) — fits in 1-2 segments
+            parts = [f"Returning Visitor: {visitor_name}"]
+            parts.append(f"Ph: {visitor_mobile}")
+            if visitor_company:
+                parts.append(f"Co: {visitor_company}")
+            parts.append(f"Reason: {reason_for_visit[:60]}")
+            if person_to_meet_name:
+                parts.append(f"To meet: {person_to_meet_name}")
+
+            if hasattr(settings, 'dashboard_url') and settings.dashboard_url:
+                dashboard_url = settings.dashboard_url.rstrip('/')
+            else:
+                dashboard_url = f"{settings.frontend_url.rstrip('/')}/dashboard"
+            parts.append(f"View: {dashboard_url}")
+
+            message_body = "\n".join(parts)
+
+            logger.info(f"Sending revisit SMS from {from_number} to {formatted_to}")
+
+            if settings.twilio_messaging_service_sid:
+                message = self.client.messages.create(
+                    body=message_body,
+                    messaging_service_sid=settings.twilio_messaging_service_sid,
+                    to=formatted_to
+                )
+            else:
+                message = self.client.messages.create(
+                    body=message_body,
+                    from_=from_number,
+                    to=formatted_to
+                )
+
+            logger.info(f"Revisit SMS sent. SID: {message.sid}")
+
+            if message.status == 'failed' or message.error_code:
+                logger.error(f"Revisit SMS delivery failed: {message.error_code}")
+                return False
+
+            return True
+
+        except TwilioException as e:
+            logger.error(f"Twilio error sending revisit SMS: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error sending revisit SMS: {e}")
             return False
 
 

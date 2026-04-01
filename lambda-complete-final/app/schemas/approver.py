@@ -84,6 +84,11 @@ class ApproverSimple(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ApproverIdentifyRequest(BaseModel):
+    """Schema for approver identification by full name (no password required)"""
+    name: str = Field(..., min_length=1, description="Full name of the approver")
+
+
 class ForgotPasswordRequest(BaseModel):
     """Schema for forgot password request"""
     username: str = Field(..., description="Username or email address of the approver")

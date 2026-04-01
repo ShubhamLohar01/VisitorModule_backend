@@ -1,7 +1,9 @@
 from typing import List
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.core.auth import AuthUtils, get_current_approver, get_current_superuser
@@ -14,6 +16,7 @@ from app.schemas.approver import (
     ApproverLogin,
     ApproverLoginResponse,
     ApproverSimple,
+    ApproverIdentifyRequest,
     Token,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
@@ -114,6 +117,59 @@ def login(
         approver_response = ApproverResponse.model_validate(approver_dict)
     else:
         approver_response = ApproverResponse.model_validate(approver)
+
+    return ApproverLoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        approver=approver_response
+    )
+
+
+@router.post("/identify", response_model=ApproverLoginResponse, status_code=status.HTTP_200_OK)
+def identify_by_name(
+    identify_data: ApproverIdentifyRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Identify an approver by full name without password.
+    Returns a JWT token with 7-day expiry for session management.
+
+    Args:
+        identify_data: Request containing the approver's full name
+        db: Database session
+
+    Returns:
+        JWT access token (7-day expiry) and approver information
+
+    Raises:
+        HTTPException: If no approver found with the given name or account is inactive
+    """
+    name = identify_data.name.strip()
+
+    # Find approver by name (case-insensitive)
+    approver = db.query(Approver).filter(
+        func.lower(Approver.name) == name.lower()
+    ).first()
+
+    if not approver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No employee found with name '{name}'. Please enter your full name as registered."
+        )
+
+    if not approver.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is inactive. Please contact administrator."
+        )
+
+    # Create access token with 7-day expiry
+    access_token = AuthUtils.create_access_token(
+        data={"sub": approver.username, "approver_id": approver.id},
+        expires_delta=timedelta(days=7)
+    )
+
+    approver_response = ApproverResponse.model_validate(approver)
 
     return ApproverLoginResponse(
         access_token=access_token,

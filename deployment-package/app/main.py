@@ -1,12 +1,13 @@
 """
 Visitor Management System API
-Main application file
+Main application file hai
 """
 
 from fastapi import FastAPI, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import logging
+import os
 import uvicorn
 
 from app.core.config import settings
@@ -177,10 +178,13 @@ logger.info("All routers registered successfully")
 # ============================================================================
 
 if __name__ == "__main__":
+    is_dev = settings.ENVIRONMENT != "production"
+    port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
-        app,
+        # Use import string so reload/workers work correctly (and avoid warnings).
+        "app.main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
+        port=port,
+        reload=is_dev,
         log_level=settings.LOG_LEVEL.lower()
     )

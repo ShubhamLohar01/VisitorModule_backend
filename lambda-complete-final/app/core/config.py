@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     smtp_password: Optional[str] = Field(default=None, alias="SMTP_PASSWORD")
     from_email: Optional[str] = Field(default=None, alias="FROM_EMAIL")
     aws_region: str = Field(default="ap-south-1", alias="AWS_REGION")
-    aws_s3_bucket_name: str = Field(default="complaint-module-images", alias="AWS_S3_BUCKET_NAME")
+    aws_s3_bucket_name: str = Field(default="visitor-selfie-image", alias="AWS_S3_BUCKET_NAME")
     
     # CORS Configuration
     API_CORS_ORIGINS: Optional[str] = Field(default=None, alias="API_CORS_ORIGINS")
@@ -103,8 +103,8 @@ class Settings(BaseSettings):
     twilio_sms_enabled: bool = Field(default=True, alias="TWILIO_SMS_ENABLED")
     
     # Frontend/Dashboard URL Configuration
-    frontend_url: str = Field(default="https://q80bvqq1-3000.inc1.devtunnels.ms", alias="FRONTEND_URL")
-    dashboard_url: Optional[str] = Field(default="https://q80bvqq1-3000.inc1.devtunnels.ms/dashboard", alias="DASHBOARD_URL")
+    frontend_url: str = Field(default="https://candorvms.netlify.app", alias="FRONTEND_URL")
+    dashboard_url: Optional[str] = Field(default="https://candorvms.netlify.app/dashboard", alias="DASHBOARD_URL")
     
     # Inventory Configuration
     qr_code_prefix: str = Field(default="CF", alias="QR_CODE_PREFIX")

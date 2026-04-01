@@ -103,8 +103,8 @@ class Settings(BaseSettings):
     twilio_sms_enabled: bool = Field(default=True, alias="TWILIO_SMS_ENABLED")
     
     # Frontend/Dashboard URL Configuration
-    frontend_url: str = Field(default="https://q80bvqq1-3000.inc1.devtunnels.ms", alias="FRONTEND_URL")
-    dashboard_url: Optional[str] = Field(default="https://q80bvqq1-3000.inc1.devtunnels.ms/dashboard", alias="DASHBOARD_URL")
+    frontend_url: str = Field(default="https://candorvms.netlify.app", alias="FRONTEND_URL")
+    dashboard_url: Optional[str] = Field(default="https://candorvms.netlify.app/dashboard", alias="DASHBOARD_URL")
     
     # Inventory Configuration
     qr_code_prefix: str = Field(default="CF", alias="QR_CODE_PREFIX")

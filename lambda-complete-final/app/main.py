@@ -7,6 +7,7 @@ from fastapi import FastAPI, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import logging
+import os
 import uvicorn
 
 from app.core.config import settings
@@ -23,6 +24,38 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# DB Migration (runs at import time so it works on Lambda where lifespan="off")
+# ============================================================================
+try:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE vis_visitors ALTER COLUMN img_url TYPE VARCHAR(2000)"))
+        conn.commit()
+        logger.info("img_url column migrated to VARCHAR(2000)")
+except Exception:
+    pass  # Already migrated or not needed
+
+# Add COMPLETED value to the visitor status enum if it doesn't exist
+try:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TYPE visitorstatus ADD VALUE IF NOT EXISTS 'COMPLETED'"))
+        conn.commit()
+        logger.info("COMPLETED status added to visitorstatus enum")
+except Exception:
+    pass  # Already exists or not needed
+
+# Add icard_name column to icards table if it doesn't exist
+try:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE icards ADD COLUMN IF NOT EXISTS icard_name VARCHAR(255)"))
+        conn.commit()
+        logger.info("icard_name column added to icards table")
+except Exception:
+    pass  # Already exists or not needed
 
 # ============================================================================
 # FastAPI Application
@@ -65,7 +98,7 @@ else:
         "http://127.0.0.1:4001",
         "https://x5xqkl8w-4000.inc1.devtunnels.ms",
         "https://q80bvqq1-3000.inc1.devtunnels.ms",
-        # Add your tunnel URLs here
+        "https://candorvms.netlify.app",
     ]
 
     if settings.API_CORS_ORIGINS:
@@ -196,10 +229,13 @@ def google_form_root_endpoint(
 logger.info("All routers registered successfully")
 
 if __name__ == "__main__":
+    is_dev = settings.ENVIRONMENT != "production"
+    port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
-        app,
+        # Use import string so reload/workers work correctly (and avoid warnings).
+        "app.main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
+        port=port,
+        reload=is_dev,
         log_level=settings.LOG_LEVEL.lower()
     )

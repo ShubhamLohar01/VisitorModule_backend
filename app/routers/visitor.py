@@ -1,10 +1,12 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, date
 import re
 import logging
+import io
 
 from app.core.database import get_db
 from app.core.auth import get_current_approver
@@ -23,6 +25,7 @@ from app.schemas.visitor import (
 )
 from app.services.s3_service import s3_service
 from app.services.sms_service import sms_service
+from app.services.whatsapp_service import whatsapp_service
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +141,37 @@ def validate_visitor_id(visitor_id: str) -> int:
     return int(visitor_id)
 
 
+@router.get("/debug-s3")
+def debug_s3():
+    """Temporary debug endpoint to test S3 connectivity."""
+    import os
+    result = {
+        "bucket": s3_service.bucket_name,
+        "region": s3_service.region,
+        "credential_source": "boto3 default chain (Lambda IAM role)",
+        "session_token_present": bool(os.environ.get("AWS_SESSION_TOKEN")),
+    }
+    # Try a small test upload
+    try:
+        test_content = b"test"
+        test_key = "visitors/_test_debug.txt"
+        s3_service.s3_client.put_object(
+            Bucket=s3_service.bucket_name,
+            Key=test_key,
+            Body=test_content,
+            ContentType="text/plain"
+        )
+        result["upload_test"] = "SUCCESS"
+        # Clean up
+        try:
+            s3_service.s3_client.delete_object(Bucket=s3_service.bucket_name, Key=test_key)
+        except:
+            pass
+    except Exception as e:
+        result["upload_test"] = f"FAILED: {str(e)}"
+    return result
+
+
 @router.post("/check-in", response_model=VisitorCheckInResponse, status_code=status.HTTP_201_CREATED)
 def check_in_visitor(
     visitor_data: VisitorCheckIn,
@@ -192,13 +226,26 @@ def check_in_visitor(
     db.commit()
     db.refresh(new_visitor)
 
+    # Capture values from DB model BEFORE enriching (enrich returns a dict, not an object)
+    saved_id = new_visitor.id
+    saved_person_to_meet = new_visitor.person_to_meet
+    saved_visitor_name = new_visitor.visitor_name
+    saved_mobile = new_visitor.mobile_number
+    saved_email = new_visitor.email_address
+    saved_company = new_visitor.company
+    saved_reason = new_visitor.reason_to_visit
+    saved_warehouse = new_visitor.warehouse
+    saved_check_in_time = new_visitor.check_in_time
+    saved_img_url = getattr(new_visitor, 'img_url', None)
+
     # Enrich with contact information
     visitor_data = enrich_visitor_with_contact(new_visitor, db)
 
     # Send SMS notification asynchronously (non-blocking)
-    def send_sms_background(visitor_id: int, person_to_meet: str, visitor_name: str, 
-                           mobile: str, email: Optional[str], company: Optional[str], 
-                           reason: str, warehouse: Optional[str]):
+    def send_sms_background(visitor_id: int, person_to_meet: str, visitor_name: str,
+                           mobile: str, email: Optional[str], company: Optional[str],
+                           reason: str, warehouse: Optional[str], check_in_time=None,
+                           img_url: Optional[str] = None):
         """Background task to send SMS without blocking the response."""
         try:
             # Get a new database session for background task
@@ -206,44 +253,48 @@ def check_in_visitor(
             db_session = SessionLocal()
             try:
                 approver = db_session.query(Approver).filter(
-                    (Approver.username == person_to_meet) | 
+                    (Approver.username == person_to_meet) |
                     (Approver.name == person_to_meet)
                 ).first()
-                
+
                 if approver and approver.ph_no:
-                    sms_sent = sms_service.send_visitor_notification(
+                    visit_time = check_in_time.strftime("%I:%M %p") if check_in_time else "N/A"
+                    reference_no = check_in_time.strftime("%Y%m%d%H%M%S") if check_in_time else str(visitor_id)
+                    # Send WhatsApp notification to approver
+                    msg_sent = whatsapp_service.send_visitor_notification(
                         to_phone=approver.ph_no,
                         visitor_name=visitor_name,
-                        visitor_mobile=mobile,
-                        visitor_email=email,
+                        person_to_meet_name=approver.name,
                         visitor_company=company,
                         reason_for_visit=reason,
-                        visitor_id=str(visitor_id),
-                        warehouse=warehouse,
-                        person_to_meet_name=approver.name
+                        visit_time=visit_time,
+                        reference_no=reference_no,
+                        visitor_image_url=img_url,
                     )
-                    if sms_sent:
-                        logger.info(f"SMS notification sent to {approver.ph_no} for visitor {visitor_id}")
+                    if msg_sent:
+                        logger.info(f"[WhatsApp] Notification sent to {approver.ph_no} for visitor {visitor_id}")
                     else:
-                        logger.warning(f"Failed to send SMS notification to {approver.ph_no}")
+                        logger.warning(f"[WhatsApp] Failed to send notification to {approver.ph_no}")
                 else:
-                    logger.warning(f"Approver '{person_to_meet}' not found or has no phone number. SMS not sent.")
+                    logger.warning(f"Approver '{person_to_meet}' not found or has no phone number. WhatsApp not sent.")
             finally:
                 db_session.close()
         except Exception as e:
-            logger.error(f"Error sending SMS notification in background: {e}", exc_info=True)
-    
-    # Add background task (non-blocking)
+            logger.error(f"Error sending WhatsApp notification in background: {e}", exc_info=True)
+
+    # Add background task (non-blocking) — use saved values, not the dict
     background_tasks.add_task(
         send_sms_background,
-        visitor_data.id,
-        visitor_data.person_to_meet,
-        visitor_data.visitor_name,
-        visitor_data.mobile_number,
-        visitor_data.email_address,
-        visitor_data.company,
-        visitor_data.reason_to_visit,
-        visitor_data.warehouse
+        saved_id,
+        saved_person_to_meet,
+        saved_visitor_name,
+        saved_mobile,
+        saved_email,
+        saved_company,
+        saved_reason,
+        saved_warehouse,
+        saved_check_in_time,
+        saved_img_url,
     )
 
     return VisitorCheckInResponse(
@@ -262,7 +313,10 @@ async def check_in_visitor_with_image(
     company: str = Form(..., min_length=1, max_length=255, description="Company name of the visitor"),
     warehouse: Optional[str] = Form(None, max_length=255, description="Warehouse location"),
     health_declaration: Optional[str] = Form(None, description="Health & safety declaration as JSON string"),
+    carrying_electronics: Optional[str] = Form("false", description="Boolean flag indicating if visitor is carrying electronics"),
+    electronics_items: Optional[str] = Form(None, description="JSON array of electronics items details"),
     image: UploadFile = File(..., description="Visitor image file"),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -277,9 +331,12 @@ async def check_in_visitor_with_image(
         mobile_number: Mobile number of the visitor
         person_to_meet: Person the visitor wants to meet
         reason_to_visit: Reason for the visit
-        email_address: Email address of the visitor (optional)
-        company: Company name of the visitor (optional)
+        email_address: Email address of the visitor
+        company: Company name of the visitor
         warehouse: Warehouse location (optional)
+        health_declaration: Health declaration as JSON string (optional)
+        carrying_electronics: Boolean flag indicating if visitor carries electronics (optional)
+        electronics_items: JSON array of electronics items details (optional)
         image: Image file (JPEG, PNG, etc.)
         db: Database session
 
@@ -316,6 +373,8 @@ async def check_in_visitor_with_image(
         reason_to_visit=reason_to_visit,
         warehouse=warehouse,
         health_declaration=health_declaration,
+        carrying_electronics=carrying_electronics,
+        electronics_items=electronics_items,
         status=VisitorStatus.WAITING
     )
 
@@ -327,78 +386,126 @@ async def check_in_visitor_with_image(
     check_in_time = new_visitor.check_in_time
     visitor_number = check_in_time.strftime("%Y%m%d%H%M%S")
 
-    # Upload to S3 immediately (synchronous) - with increased timeouts this should complete within API Gateway limit
+    # --- S3 upload ---
+    img_url = None
+    s3_error = None
     try:
-        logger.info(f"Starting S3 upload for visitor {visitor_number}")
+        logger.info(f"Starting S3 upload for visitor {visitor_number} ({len(file_content):,} bytes)")
+        logger.info(f"S3 config: bucket={s3_service.bucket_name}, region={s3_service.region}")
         img_url = s3_service.upload_visitor_image(
             file_content=file_content,
             visitor_number=visitor_number,
             content_type=image.content_type
         )
         new_visitor.img_url = img_url
-        db.commit()
-        db.refresh(new_visitor)
-        logger.info(f"S3 upload complete for visitor {visitor_number}: {img_url}")
+        logger.info(f"S3 upload complete for visitor {visitor_number}, url={img_url[:80]}...")
     except Exception as e:
-        logger.error(f"S3 upload failed for visitor {visitor_number}: {str(e)}")
-        # Continue anyway - image can be uploaded later if needed
-        new_visitor.img_url = None
-        db.commit()
-        db.refresh(new_visitor)
+        s3_error = str(e)
+        logger.error(f"S3 upload failed for visitor {visitor_number}: {s3_error}", exc_info=True)
+
+    # --- Electronics photos upload (synchronous) ---
+    if carrying_electronics == "true" and electronics_items:
+        try:
+            import json
+            electronics_data = json.loads(electronics_items)
+            updated_electronics = []
+            for index, item in enumerate(electronics_data):
+                updated_item = item.copy()
+                if item.get('photo') and item['photo'].startswith('data:image'):
+                    try:
+                        photo_url = s3_service.upload_base64_image(
+                            base64_data=item['photo'],
+                            visitor_number=visitor_number,
+                            item_index=index,
+                            folder="electronics"
+                        )
+                        updated_item['photo'] = photo_url
+                    except Exception:
+                        updated_item['photo'] = item['photo']
+                updated_electronics.append(updated_item)
+            new_visitor.electronics_items = json.dumps(updated_electronics)
+        except Exception as e:
+            logger.error(f"Failed to process electronics photos: {str(e)}")
+
+    db.commit()
+    db.refresh(new_visitor)
 
     # Enrich with contact information
     visitor_data = enrich_visitor_with_contact(new_visitor, db)
-    
-    # Extract date_of_visit and time_slot from health_declaration if present
-    date_of_visit = None
-    time_slot = None
-    if health_declaration:
-        try:
-            import json
-            health_data = json.loads(health_declaration)
-            date_of_visit = health_data.get('date_of_visit')
-            time_slot = health_data.get('time_slot')
-        except:
-            pass
 
-    # Send SMS notification - quick lookup and send (with timeout protection)
-    # Note: In Lambda, BackgroundTasks don't work as expected. We'll do a quick synchronous send with timeout.
-    try:
-        logger.info(f"[SMS] Searching for approver: {person_to_meet}")
-        approver = db.query(Approver).filter(
-            (Approver.username == person_to_meet) | 
-            (Approver.name == person_to_meet)
-        ).first()
-        
-        if approver and approver.ph_no:
-            logger.info(f"[SMS] Sending SMS to {approver.ph_no}")
-            # SMS service already has 10s timeout - this won't block long
-            sms_sent = sms_service.send_visitor_notification(
-                to_phone=approver.ph_no,
-                visitor_name=visitor_name,
-                visitor_mobile=mobile_number,
-                visitor_email=email_address,
-                visitor_company=company,
-                reason_for_visit=reason_to_visit,
-                visitor_id=str(new_visitor.id),
-                warehouse=warehouse,
-                person_to_meet_name=approver.name,
-                date_of_visit=date_of_visit,
-                time_slot=time_slot
-            )
-            if sms_sent:
-                logger.info(f"[SMS] ✓ SMS sent to {approver.ph_no}")
-            else:
-                logger.warning(f"[SMS] ✗ SMS failed to {approver.ph_no}")
-        else:
-            logger.warning(f"[SMS] Approver '{person_to_meet}' not found or has no phone number")
-    except Exception as e:
-        # Don't fail the request if SMS fails
-        logger.error(f"[SMS] ✗ SMS error: {e}")
-        pass
+    # --- SMS notification via background task (Mangum runs these before returning on Lambda) ---
+    # Capture values before returning
+    saved_id = new_visitor.id
+    saved_person_to_meet = new_visitor.person_to_meet
+    saved_visitor_name = new_visitor.visitor_name
+    saved_mobile = new_visitor.mobile_number
+    saved_email = new_visitor.email_address
+    saved_company = new_visitor.company
+    saved_reason = new_visitor.reason_to_visit
+    saved_warehouse = new_visitor.warehouse
+    saved_check_in_time = new_visitor.check_in_time
+    saved_img_url = new_visitor.img_url
+
+    def send_sms_background(visitor_id: int, person_to_meet_val: str, v_name: str,
+                           mobile: str, email: Optional[str], v_company: Optional[str],
+                           reason: str, wh: Optional[str], check_in_time=None,
+                           img_url: Optional[str] = None):
+        """Background task to send SMS without blocking the response."""
+        try:
+            from app.core.database import SessionLocal
+            db_session = SessionLocal()
+            try:
+                approver = db_session.query(Approver).filter(
+                    (Approver.username == person_to_meet_val) |
+                    (Approver.name == person_to_meet_val)
+                ).first()
+
+                if approver and approver.ph_no:
+                    visit_time = check_in_time.strftime("%I:%M %p") if check_in_time else "N/A"
+                    reference_no = check_in_time.strftime("%Y%m%d%H%M%S") if check_in_time else str(visitor_id)
+                    logger.info(f"[WhatsApp] Sending notification to {approver.ph_no}")
+                    msg_sent = whatsapp_service.send_visitor_notification(
+                        to_phone=approver.ph_no,
+                        visitor_name=v_name,
+                        person_to_meet_name=approver.name,
+                        visitor_company=v_company,
+                        reason_for_visit=reason,
+                        visit_time=visit_time,
+                        reference_no=reference_no,
+                        visitor_image_url=img_url,
+                    )
+                    if msg_sent:
+                        logger.info(f"[WhatsApp] Notification sent to {approver.ph_no}")
+                    else:
+                        logger.warning(f"[WhatsApp] Failed to send notification to {approver.ph_no}")
+                else:
+                    logger.warning(f"[WhatsApp] Approver '{person_to_meet_val}' not found or has no phone number.")
+            finally:
+                db_session.close()
+        except Exception as e:
+            logger.error(f"[WhatsApp] Error: {e}", exc_info=True)
+
+    background_tasks.add_task(
+        send_sms_background,
+        saved_id,
+        saved_person_to_meet,
+        saved_visitor_name,
+        saved_mobile,
+        saved_email,
+        saved_company,
+        saved_reason,
+        saved_warehouse,
+        saved_check_in_time,
+        saved_img_url,
+    )
+
+    # Include S3 error in message for debugging (temporary)
+    msg = "Visitor checked in successfully with image"
+    if s3_error:
+        msg += f" [S3_ERROR: {s3_error}]"
 
     return VisitorCheckInResponse(
-        message="Visitor checked in successfully with image",
+        message=msg,
         visitor=VisitorResponse.model_validate(visitor_data)
     )
 
@@ -467,6 +574,112 @@ def get_visitor_stats(
         waiting=waiting,
         approved=approved,
         rejected=rejected
+    )
+
+
+@router.get("/export", status_code=status.HTTP_200_OK)
+def export_visitors_excel(
+    from_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
+    to_date: date = Query(..., description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    current_user: Approver = Depends(get_current_approver),
+):
+    """
+    Export visitor data as Excel file for a given date range.
+    Requires superuser authentication.
+    Excludes img_url, created_at, and updated_at columns.
+    """
+    if not current_user.superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superusers can export visitor data"
+        )
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    # Query visitors within date range (using check_in_time)
+    start_dt = datetime.combine(from_date, datetime.min.time())
+    end_dt = datetime.combine(to_date, datetime.max.time())
+
+    visitors = (
+        db.query(Visitor)
+        .filter(Visitor.check_in_time >= start_dt, Visitor.check_in_time <= end_dt)
+        .order_by(Visitor.check_in_time.desc())
+        .all()
+    )
+
+    # Define columns to export (excluding img_url, created_at, updated_at)
+    columns = [
+        ("ID", "id"),
+        ("Visitor Name", "visitor_name"),
+        ("Mobile Number", "mobile_number"),
+        ("Email Address", "email_address"),
+        ("Company", "company"),
+        ("Person To Meet", "person_to_meet"),
+        ("Reason To Visit", "reason_to_visit"),
+        ("Warehouse", "warehouse"),
+        ("Health Declaration", "health_declaration"),
+        ("Carrying Electronics", "carrying_electronics"),
+        ("Electronics Items", "electronics_items"),
+        ("Status", "status"),
+        ("Rejection Reason", "rejection_reason"),
+        ("Check In Time", "check_in_time"),
+        ("Check Out Time", "check_out_time"),
+    ]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Visitors"
+
+    # Header styling
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+
+    # Write headers
+    for col_idx, (header, _) in enumerate(columns, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+
+    # Write data rows
+    for row_idx, visitor in enumerate(visitors, 2):
+        for col_idx, (_, attr) in enumerate(columns, 1):
+            value = getattr(visitor, attr, None)
+            if isinstance(value, datetime):
+                value = value.strftime("%Y-%m-%d %H:%M:%S")
+            elif hasattr(value, "value"):
+                value = value.value
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = thin_border
+
+    # Auto-adjust column widths
+    for col_idx, (header, _) in enumerate(columns, 1):
+        max_len = len(header)
+        for row in ws.iter_rows(min_row=2, min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_len + 2, 40)
+
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"visitors_{from_date}_{to_date}.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -804,10 +1017,29 @@ def update_visitor_status(
             except Exception as e:
                 logger.error(f"[Appointment] Error sending rejection email: {e}", exc_info=True)
         
+        # Send rejection WhatsApp notification in background
+        def send_rejection_whatsapp_background(visitor_mobile: str, visitor_name: str, cn_number: str = None):
+            """Background task to send rejection WhatsApp notification"""
+            try:
+                logger.info(f"[WhatsApp] Sending rejection notification to {visitor_mobile}")
+
+                msg_sent = whatsapp_service.send_rejection_notification(
+                    to_phone=visitor_mobile,
+                    visitor_name=visitor_name,
+                    cn_number=cn_number,
+                )
+
+                if msg_sent:
+                    logger.info(f"[WhatsApp] Rejection notification sent successfully to {visitor_mobile}")
+                else:
+                    logger.warning(f"[WhatsApp] Failed to send rejection notification to {visitor_mobile}")
+            except Exception as e:
+                logger.error(f"[WhatsApp] Error sending rejection notification: {e}", exc_info=True)
+        
         # Get rejection reason if available
         rejection_reason = getattr(status_data, 'rejection_reason', None) or visitor.rejection_reason
         
-        # Add background task to send rejection email
+        # Add background tasks to send rejection email and WhatsApp
         background_tasks.add_task(
             send_rejection_email_background,
             visitor.email_address,
@@ -816,6 +1048,16 @@ def update_visitor_status(
             time_slot,
             rejection_reason
         )
+        
+        # Send rejection WhatsApp notification
+        if visitor.mobile_number:
+            rejection_cn = visitor.check_in_time.strftime("%Y%m%d%H%M%S") if visitor.check_in_time else str(visitor.id)
+            background_tasks.add_task(
+                send_rejection_whatsapp_background,
+                visitor.mobile_number,
+                visitor.visitor_name,
+                rejection_cn,
+            )
         
         logger.info(f"[Appointment] Appointment rejection processed for visitor {visitor_id}")
 
@@ -827,26 +1069,23 @@ def update_visitor_status(
                                         person_to_meet_name: Optional[str],
                                         visitor_id_str: str, is_appt: bool,
                                         visit_date: Optional[str], visit_time: Optional[str]):
-            """Background task to send approval SMS to visitor"""
+            """Background task to send approval notification to visitor"""
             try:
-                logger.info(f"[SMS] Sending approval SMS to visitor {visitor_name} at {visitor_mobile}")
+                logger.info(f"[WhatsApp] Sending approval notification to visitor {visitor_name} at {visitor_mobile}")
                 
-                sms_sent = sms_service.send_approval_notification(
+                msg_sent = whatsapp_service.send_approval_notification(
                     to_phone=visitor_mobile,
                     visitor_name=visitor_name,
                     person_to_meet_name=person_to_meet_name,
-                    visitor_id=visitor_id_str,
-                    is_appointment=is_appt,
-                    appointment_date=visit_date,
-                    appointment_time=visit_time
+                    cn_number=visitor_id_str,
                 )
                 
-                if sms_sent:
-                    logger.info(f"[SMS] ✓ Approval SMS sent successfully to visitor {visitor_name} at {visitor_mobile}")
+                if msg_sent:
+                    logger.info(f"[WhatsApp] ✓ Approval notification sent successfully to visitor {visitor_name} at {visitor_mobile}")
                 else:
-                    logger.warning(f"[SMS] ✗ Failed to send approval SMS to visitor {visitor_name} at {visitor_mobile}")
+                    logger.warning(f"[WhatsApp] ✗ Failed to send approval notification to visitor {visitor_name} at {visitor_mobile}")
             except Exception as e:
-                logger.error(f"[SMS] ✗ Error sending approval SMS to visitor: {e}", exc_info=True)
+                logger.error(f"[WhatsApp] ✗ Error sending approval notification to visitor: {e}", exc_info=True)
         
         # Get person to meet name
         person_to_meet_name = None

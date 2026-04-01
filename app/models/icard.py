@@ -11,7 +11,8 @@ class ICard(Base):
     __tablename__ = "icards"
 
     id = Column(Integer, primary_key=True, index=True)
-    card_name = Column(String(255), nullable=False, unique=True, index=True)
+    card_name = Column(String(255), nullable=False, unique=True, index=True)  # QR reference ID (CU001, VE005, VI012)
+    icard_name = Column(String(255), nullable=True)  # Display name (e.g. "visitor-card-01")
     occ_status = Column(Boolean, default=False, nullable=False)
     occ_to = Column(BigInteger, nullable=True)  # Visitor ID that the card is assigned to
 

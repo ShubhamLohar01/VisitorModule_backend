@@ -8,3 +8,14 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Environment secrets — never commit real credentials
+.env
+
+# Build artifacts
+*.zip
+lambda-build/
+lambda-complete-final/
+deployment-package/
+temp-fix/
+layer/

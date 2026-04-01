@@ -14,6 +14,8 @@ class VisitorBase(BaseModel):
     reason_to_visit: str = Field(..., min_length=1, max_length=500, description="Reason for the visit")
     warehouse: Optional[str] = Field(None, max_length=255, description="Warehouse location")
     health_declaration: Optional[str] = Field(None, description="Health & safety declaration as JSON string")
+    carrying_electronics: Optional[str] = Field("false", description="Boolean flag indicating if visitor is carrying electronics")
+    electronics_items: Optional[str] = Field(None, description="JSON array containing electronics items details")
     date_of_visit: Optional[str] = Field(None, description="Scheduled date of visit (YYYY-MM-DD format)")
     time_slot: Optional[str] = Field(None, max_length=50, description="Scheduled time slot for the visit")
 
@@ -33,6 +35,8 @@ class VisitorUpdate(BaseModel):
     reason_to_visit: Optional[str] = Field(None, min_length=1, max_length=500)
     warehouse: Optional[str] = Field(None, max_length=255)
     health_declaration: Optional[str] = Field(None, description="Health & safety declaration as JSON string")
+    carrying_electronics: Optional[str] = Field(None, description="Boolean flag indicating if visitor is carrying electronics")
+    electronics_items: Optional[str] = Field(None, description="JSON array containing electronics items details")
     status: Optional[VisitorStatus] = None
     check_out_time: Optional[datetime] = None
 
