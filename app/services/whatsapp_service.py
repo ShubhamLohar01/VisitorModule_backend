@@ -1,10 +1,10 @@
 """
-WhatsApp Service for sending notifications via Meta WhatsApp Business API.
-Uses message templates for structured communications.
+WhatsApp Service for sending notifications via Meta WhatsApp Business Cloud API.
+Uses pre-approved message templates for structured communications.
 """
 from typing import Optional, List
 import logging
-import requests
+import httpx
 
 from app.core.config import settings
 
@@ -27,6 +27,14 @@ class WhatsAppService:
         "visitor_approved": "visitor_approved",            # Approval confirmation → visitor
         "visitor_revisit_otp": "visitor_revisit_otp",     # OTP for revisit → visitor
         "visitor_rejected": "visitor_rejected",            # Rejection → visitor
+    }
+
+    # Language codes per template
+    TEMPLATE_LANGUAGES = {
+        "visitor_approval_emp": "en",
+        "visitor_approved": "en",
+        "visitor_rejected": "en",
+        "visitor_revisit_otp": "en_US",
     }
 
     def __init__(self):
@@ -64,13 +72,14 @@ class WhatsAppService:
         else:
             return f"91{digits}"
 
-    # Language codes per template (visitor_approval_emp uses "en"; OTP uses "en_US")
-    TEMPLATE_LANGUAGES = {
-        "visitor_approval_emp": "en",
-        "visitor_approved": "en",
-        "visitor_rejected": "en",
-        "visitor_revisit_otp": "en_US",
-    }
+    def _get_headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+
+    def _get_messages_url(self) -> str:
+        return f"{self.BASE_URL}/{self.phone_number_id}/messages"
 
     def _send_template_message(
         self,
@@ -104,8 +113,6 @@ class WhatsAppService:
                 logger.warning(f"Invalid phone number: {to_phone}")
                 return False
 
-            url = f"{self.BASE_URL}/{self.phone_number_id}/messages"
-
             components = []
 
             if header_image_url:
@@ -136,13 +143,14 @@ class WhatsAppService:
                 },
             }
 
-            headers = {
-                "Authorization": f"Bearer {self.access_token}",
-                "Content-Type": "application/json",
-            }
-
             logger.info(f"Sending WhatsApp '{template_name}' to {formatted_phone}")
-            response = requests.post(url, json=payload, headers=headers, timeout=10)
+
+            with httpx.Client(timeout=10) as client:
+                response = client.post(
+                    self._get_messages_url(),
+                    headers=self._get_headers(),
+                    json=payload,
+                )
 
             if response.status_code == 200:
                 message_id = response.json().get("messages", [{}])[0].get("id", "unknown")
@@ -152,20 +160,50 @@ class WhatsAppService:
                 logger.error(f"WhatsApp API error {response.status_code}: {response.text}")
                 return False
 
-        except requests.exceptions.Timeout:
+        except httpx.TimeoutException:
             logger.error("WhatsApp API request timed out")
-            return False
-        except requests.exceptions.RequestException as e:
-            logger.error(f"WhatsApp API request failed: {e}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error sending WhatsApp message: {e}")
+            return False
+
+    def send_text_message(self, to_phone: str, text: str) -> bool:
+        """Send a plain text WhatsApp message (for webhook confirmations)."""
+        if not self.enabled:
+            return False
+
+        try:
+            formatted_phone = self.format_phone_number(to_phone)
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": formatted_phone,
+                "type": "text",
+                "text": {"body": text},
+            }
+
+            with httpx.Client(timeout=10) as client:
+                response = client.post(
+                    self._get_messages_url(),
+                    headers=self._get_headers(),
+                    json=payload,
+                )
+
+            if response.status_code == 200:
+                logger.info(f"WhatsApp text message sent to {formatted_phone}")
+                return True
+            else:
+                logger.error(f"WhatsApp text error {response.status_code}: {response.text}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp text: {e}")
             return False
 
     def send_visitor_notification(
         self,
         to_phone: str,
         visitor_name: str,
+        visitor_id: str,
         person_to_meet_name: Optional[str] = None,
         visitor_company: Optional[str] = None,
         reason_for_visit: Optional[str] = None,
@@ -176,12 +214,11 @@ class WhatsAppService:
         """
         Send WhatsApp notification to approver about new visitor.
         Template 'visitor_approval_emp' (lang: en):
-          header = visitor selfie image (optional)
-          {{1}} = visitor name
-          {{2}} = company
-          {{3}} = purpose
-          {{4}} = time
-          {{5}} = reference number
+          header = visitor selfie image
+          {{1}} = visitor name, {{2}} = company, {{3}} = purpose
+          {{4}} = time,         {{5}} = reference number
+          Buttons: [Approve] payload=approve_{visitor_id}
+                   [Reject]  payload=reject_{visitor_id}
         """
         try:
             params = [
@@ -189,16 +226,33 @@ class WhatsAppService:
                 visitor_company or "Not specified",
                 reason_for_visit or "Business visit",
                 visit_time or "N/A",
-                reference_no or "N/A",
+                reference_no or visitor_id,
+            ]
+
+            button_params = [
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [{"type": "payload", "payload": f"approve_{visitor_id}"}],
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "1",
+                    "parameters": [{"type": "payload", "payload": f"reject_{visitor_id}"}],
+                },
             ]
 
             header_img = visitor_image_url or self.DEFAULT_VISITOR_IMAGE
-            logger.info(f"[WhatsApp] Sending visitor notification to approver {to_phone} for {visitor_name}")
+            logger.info(f"[WhatsApp] Sending visitor notification to {to_phone} for visitor {visitor_id}")
+
             return self._send_template_message(
                 to_phone=to_phone,
                 template_name=self.TEMPLATES["visitor_approval_emp"],
                 body_params=params,
                 header_image_url=header_img,
+                button_params=button_params,
             )
         except Exception as e:
             logger.error(f"Error sending visitor notification: {e}")
@@ -213,12 +267,10 @@ class WhatsAppService:
     ) -> bool:
         """
         Send WhatsApp approval confirmation to visitor.
-        Template 'visitor_approved':
-          {{1}} = CN number
+        Template 'visitor_approved' (lang: en): {{1}} = CN number
         """
         try:
             params = [cn_number or visitor_name]
-
             logger.info(f"[WhatsApp] Sending approval notification to visitor {to_phone}")
             return self._send_template_message(
                 to_phone=to_phone,
@@ -237,12 +289,10 @@ class WhatsAppService:
     ) -> bool:
         """
         Send WhatsApp rejection notification to visitor.
-        Template 'visitor_rejected':
-          {{1}} = CN number
+        Template 'visitor_rejected' (lang: en): {{1}} = CN number
         """
         try:
             params = [cn_number or visitor_name]
-
             logger.info(f"[WhatsApp] Sending rejection notification to visitor {to_phone}")
             return self._send_template_message(
                 to_phone=to_phone,
@@ -261,9 +311,8 @@ class WhatsAppService:
     ) -> bool:
         """
         Send WhatsApp OTP for revisit verification.
-        Template 'visitor_revisit_otp' (authentication):
-          body {{1}} = OTP code
-          button copy_code = OTP code
+        Template 'visitor_revisit_otp' (authentication, lang: en_US):
+          body {{1}} = OTP, button COPY_CODE = OTP
         """
         try:
             button_params = [
@@ -274,7 +323,6 @@ class WhatsAppService:
                     "parameters": [{"type": "coupon_code", "coupon_code": otp_code}],
                 }
             ]
-
             logger.info(f"[WhatsApp] Sending OTP to {to_phone}")
             return self._send_template_message(
                 to_phone=to_phone,

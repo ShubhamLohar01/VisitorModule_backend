@@ -14,7 +14,7 @@ import requests
 
 from app.core.config import settings
 from app.core.database import engine, Base, get_db
-from app.routers import approver, visitor, icard, sms_webhook, appointment
+from app.routers import approver, visitor, icard, sms_webhook, appointment, whatsapp_webhook
 # from app.models import Approver, Visitor
 
 # ============================================================================
@@ -286,6 +286,7 @@ app.include_router(visitor.router)  # Visitor check-in and management
 app.include_router(icard.router)  # ICard management
 app.include_router(sms_webhook.router)  # SMS webhook for reply handling
 app.include_router(appointment.router)  # Appointment management
+app.include_router(whatsapp_webhook.router)  # WhatsApp webhook for Approve/Reject button replies
 
 # Add Google Form endpoint at root level to match Apps Script URL
 from app.routers.visitor import google_form_submission, GoogleFormSubmission

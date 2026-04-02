@@ -32,6 +32,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/visitors", tags=["Visitors"])
 
 
+def _get_superuser_phone_numbers(db: Session) -> List[str]:
+    """Return all active superuser phone numbers (deduped)."""
+    superusers = db.query(Approver).filter(
+        Approver.superuser == True,  # noqa: E712
+        Approver.is_active == True,  # noqa: E712
+        Approver.ph_no.isnot(None),
+        Approver.ph_no != "",
+    ).all()
+    phones = []
+    for s in superusers:
+        if s.ph_no and s.ph_no not in phones:
+            phones.append(s.ph_no)
+    return phones
+
+
 def enrich_visitor_with_contact(visitor: Visitor, db: Session) -> dict:
     """
     Enrich visitor data with the person to meet's contact information.
@@ -257,24 +272,33 @@ def check_in_visitor(
                     (Approver.name == person_to_meet)
                 ).first()
 
+                superuser_phones = _get_superuser_phone_numbers(db_session)
+                target_phones: List[str] = []
                 if approver and approver.ph_no:
+                    target_phones.append(approver.ph_no)
+                for p in superuser_phones:
+                    if p not in target_phones:
+                        target_phones.append(p)
+
+                if target_phones:
                     visit_time = check_in_time.strftime("%I:%M %p") if check_in_time else "N/A"
                     reference_no = check_in_time.strftime("%Y%m%d%H%M%S") if check_in_time else str(visitor_id)
-                    # Send WhatsApp notification to approver
-                    msg_sent = whatsapp_service.send_visitor_notification(
-                        to_phone=approver.ph_no,
-                        visitor_name=visitor_name,
-                        person_to_meet_name=approver.name,
-                        visitor_company=company,
-                        reason_for_visit=reason,
-                        visit_time=visit_time,
-                        reference_no=reference_no,
-                        visitor_image_url=img_url,
-                    )
-                    if msg_sent:
-                        logger.info(f"[WhatsApp] Notification sent to {approver.ph_no} for visitor {visitor_id}")
-                    else:
-                        logger.warning(f"[WhatsApp] Failed to send notification to {approver.ph_no}")
+                    for to_phone in target_phones:
+                        msg_sent = whatsapp_service.send_visitor_notification(
+                            to_phone=to_phone,
+                            visitor_name=visitor_name,
+                            visitor_id=str(visitor_id),
+                            person_to_meet_name=approver.name if approver else person_to_meet,
+                            visitor_company=company,
+                            reason_for_visit=reason,
+                            visit_time=visit_time,
+                            reference_no=reference_no,
+                            visitor_image_url=img_url,
+                        )
+                        if msg_sent:
+                            logger.info(f"[WhatsApp] Notification sent to {to_phone} for visitor {visitor_id}")
+                        else:
+                            logger.warning(f"[WhatsApp] Failed to send notification to {to_phone}")
                 else:
                     logger.warning(f"Approver '{person_to_meet}' not found or has no phone number. WhatsApp not sent.")
             finally:
@@ -460,24 +484,34 @@ async def check_in_visitor_with_image(
                     (Approver.name == person_to_meet_val)
                 ).first()
 
+                superuser_phones = _get_superuser_phone_numbers(db_session)
+                target_phones: List[str] = []
                 if approver and approver.ph_no:
+                    target_phones.append(approver.ph_no)
+                for p in superuser_phones:
+                    if p not in target_phones:
+                        target_phones.append(p)
+
+                if target_phones:
                     visit_time = check_in_time.strftime("%I:%M %p") if check_in_time else "N/A"
                     reference_no = check_in_time.strftime("%Y%m%d%H%M%S") if check_in_time else str(visitor_id)
-                    logger.info(f"[WhatsApp] Sending notification to {approver.ph_no}")
-                    msg_sent = whatsapp_service.send_visitor_notification(
-                        to_phone=approver.ph_no,
-                        visitor_name=v_name,
-                        person_to_meet_name=approver.name,
-                        visitor_company=v_company,
-                        reason_for_visit=reason,
-                        visit_time=visit_time,
-                        reference_no=reference_no,
-                        visitor_image_url=img_url,
-                    )
-                    if msg_sent:
-                        logger.info(f"[WhatsApp] Notification sent to {approver.ph_no}")
-                    else:
-                        logger.warning(f"[WhatsApp] Failed to send notification to {approver.ph_no}")
+                    for to_phone in target_phones:
+                        logger.info(f"[WhatsApp] Sending notification to {to_phone}")
+                        msg_sent = whatsapp_service.send_visitor_notification(
+                            to_phone=to_phone,
+                            visitor_name=v_name,
+                            visitor_id=str(visitor_id),
+                            person_to_meet_name=approver.name if approver else person_to_meet_val,
+                            visitor_company=v_company,
+                            reason_for_visit=reason,
+                            visit_time=visit_time,
+                            reference_no=reference_no,
+                            visitor_image_url=img_url,
+                        )
+                        if msg_sent:
+                            logger.info(f"[WhatsApp] Notification sent to {to_phone}")
+                        else:
+                            logger.warning(f"[WhatsApp] Failed to send notification to {to_phone}")
                 else:
                     logger.warning(f"[WhatsApp] Approver '{person_to_meet_val}' not found or has no phone number.")
             finally:

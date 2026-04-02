@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     whatsapp_access_token: Optional[str] = Field(default=None, alias="Whatsapp_access_token")
     whatsapp_number_id: Optional[str] = Field(default=None, alias="Whatsapp_number_id")
     whatsapp_enabled: bool = Field(default=True, alias="WHATSAPP_ENABLED")
+    whatsapp_verify_token: str = Field(default="candor_visitor_webhook", alias="WHATSAPP_VERIFY_TOKEN")
     
     # Frontend/Dashboard URL Configuration
     frontend_url: str = Field(default="https://candorvms.netlify.app", alias="FRONTEND_URL")
