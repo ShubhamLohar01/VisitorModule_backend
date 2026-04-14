@@ -63,7 +63,7 @@ except Exception:
 # Periodic Health Ping (Render keep-alive)
 # ============================================================================
 
-HEALTH_PING_URL = "https://visitor-management-backend-2hof.onrender.com/health"
+HEALTH_PING_URL = "https://vis-backend-fa1q.onrender.com/health"
 HEALTH_PING_INTERVAL_SECONDS = 5 * 60  # 5 minutes
 HEALTH_PING_TIMEOUT_SECONDS = 10
 

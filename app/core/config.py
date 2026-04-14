@@ -103,10 +103,11 @@ class Settings(BaseSettings):
     twilio_sms_enabled: bool = Field(default=True, alias="TWILIO_SMS_ENABLED")
     
     # WhatsApp Business API Configuration (Meta)
-    whatsapp_access_token: Optional[str] = Field(default=None, alias="Whatsapp_access_token")
-    whatsapp_number_id: Optional[str] = Field(default=None, alias="Whatsapp_number_id")
+    whatsapp_access_token: Optional[str] = Field(default=None, alias="WHATSAPP_ACCESS_TOKEN")
+    whatsapp_phone_number_id: Optional[str] = Field(default=None, alias="WHATSAPP_PHONE_NUMBER_ID")
     whatsapp_enabled: bool = Field(default=True, alias="WHATSAPP_ENABLED")
     whatsapp_verify_token: str = Field(default="candor_visitor_webhook", alias="WHATSAPP_VERIFY_TOKEN")
+    whatsapp_api_url: str = Field(default="https://graph.facebook.com/v21.0", alias="WHATSAPP_API_URL")
     
     # Frontend/Dashboard URL Configuration
     frontend_url: str = Field(default="https://candorvms.netlify.app", alias="FRONTEND_URL")

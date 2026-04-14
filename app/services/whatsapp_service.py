@@ -17,8 +17,6 @@ class WhatsAppService:
     Uses pre-approved message templates for compliance and better delivery.
     """
 
-    BASE_URL = "https://graph.facebook.com/v20.0"
-
     # Fallback image used as header when visitor selfie is unavailable
     DEFAULT_VISITOR_IMAGE = "https://visitor-selfie-image.s3.ap-south-1.amazonaws.com/default-visitor.jpg"
 
@@ -40,18 +38,23 @@ class WhatsAppService:
     def __init__(self):
         self.enabled = settings.whatsapp_enabled
         self.access_token = settings.whatsapp_access_token
-        self.phone_number_id = settings.whatsapp_number_id
+        self.phone_number_id = settings.whatsapp_phone_number_id
+        self.api_url = settings.whatsapp_api_url
 
         if not self.enabled:
             logger.warning("WhatsApp service is disabled")
             return
 
         if not self.access_token or not self.phone_number_id:
-            logger.error("WhatsApp credentials missing: access_token or phone_number_id not set")
+            logger.error(
+                f"WhatsApp credentials missing: "
+                f"access_token={'SET' if self.access_token else 'MISSING'}, "
+                f"phone_number_id={'SET' if self.phone_number_id else 'MISSING'}"
+            )
             self.enabled = False
             return
 
-        logger.info("WhatsApp service initialized successfully")
+        logger.info(f"WhatsApp service initialized: phone_id={self.phone_number_id}, api={self.api_url}")
 
     def format_phone_number(self, phone_number: str) -> str:
         """Format phone number to E.164 format (e.g. 919876543210)."""
@@ -79,7 +82,7 @@ class WhatsAppService:
         }
 
     def _get_messages_url(self) -> str:
-        return f"{self.BASE_URL}/{self.phone_number_id}/messages"
+        return f"{self.api_url}/{self.phone_number_id}/messages"
 
     def _send_template_message(
         self,
